@@ -1,0 +1,7 @@
+{
+	"name": "Getting started with Drasi",
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+    "workspaceFolder": "/workspaces/learning/tutorial/getting-started",
+  "features": {
+  }
+}
