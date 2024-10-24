@@ -16,9 +16,6 @@
 	  "vscode": {
 		"settings": {},
 		"extensions": [
-                        "ms-azuretools.vscode-dapr",
-			"ms-azuretools.vscode-docker",
-			"GitHub.copilot",
                         "ckolkman.vscode-postgres"
 		]
 	  }
