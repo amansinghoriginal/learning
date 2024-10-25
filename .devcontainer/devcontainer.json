@@ -9,5 +9,5 @@
 	"runArgs": [
 	  "--privileged",
 	  "--init"
-	]
+  ]
 }
