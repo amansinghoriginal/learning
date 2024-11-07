@@ -10,7 +10,7 @@
     "dotenv": "^16.0.0"
   },
   "devDependencies": {
-    "azure-functions": "^4.0.0"
+    "azure-functions-core-tools": "^4.0.0"
   },
   "keywords": [],
   "author": "",
