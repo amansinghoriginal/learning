@@ -10,7 +10,6 @@
     "dotenv": "^16.0.0"
   },
   "devDependencies": {},
-  "main": "index.js",
   "keywords": [],
   "author": "",
   "license": "ISC",
