@@ -314,7 +314,7 @@ function FloorComfortAlert(props) {
 
 async function updateRoom(buildingId, floorId, roomId, temperature, humidity, co2) {
   // Sends a POST request to the Backend function to update the temperature, humidity, and CO2 levels of the room
-  await axios.post(`${config.crudApiUrl}/building/${buildingId}/floor/${floorId}/room/${roomId}/sensor/temp`, { value: temperature });
+  await axios.post(`${config.crudApiUrl}/building/${buildingId}/floor/${floorId}/room/${roomId}/sensor/temperature`, { value: temperature });
   await delay(200);
   await axios.post(`${config.crudApiUrl}/building/${buildingId}/floor/${floorId}/room/${roomId}/sensor/humidity`, { value: humidity });
   await delay(200);

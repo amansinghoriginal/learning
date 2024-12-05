@@ -1,11 +1,70 @@
-# Building Comfort Demo Setup
+# Building Comfort with Drasi
 
-This README describes how to deploy the Building Comfort Demo for an Azure-hosted experience. Before proceeding with this doc, it is recommended that you first be familiar with the overview of the Building Comfort Demo, its architecture, and how to self-host it in your cluster.
+This is an example application for a building management scenario that illustrates usage of Drasi.
 
-## Overview
+## Scenario
+Imagine a hypothetical building management scenario where we have a building with several floors, with each floor having several rooms.
+Each room has sensors that measure the following:
+* Temperature
+* CO2 levels
+* Humidity
+
+#### The Database
+All the heirarchical relationships between buildings, floors and room stored in a PostgreSQL DB. The same DB also stores each of the sensor's latest readings. Following is a depiction of the schema:
+
+```plaintext
++--------------------+        +--------------------+        +--------------------+
+|      Building      |        |       Floor        |        |       Room         |
++--------------------+        +--------------------+        +--------------------+
+| id (PK)            |<-------| building_id (FK)   |        | id (PK)            |
+| name               |        | id (PK)            |<-------| floor_id (FK)      |
++--------------------+        | name               |        | name               |
+                              +--------------------+        | temperature        |
+                                                            | humidity           |
+                                                            | co2                |
+                                                            +--------------------+
+```
+
+### The Backend Server
+A python-flask based server hosts the following set of APIs:
+
+1. Get All Buildings: GET /building
+    * Returns all buildings with optional floors and rooms.
+
+1. Get Building by ID: GET /building/\<bid>
+    * Returns details of a specific building.
+    
+1. Get Floors of a Building: GET /building/\<bid>/floor
+    * Returns all floors in a building with optional rooms.
+
+1. Get Floor by ID: GET /building/\<bid>/floor/\<fid>
+    * Returns details of a specific floor.
+
+1. Get Rooms of a Floor: GET /building/\<bid>/floor/\<fid>/room
+    * Returns all rooms on a specific floor.
+
+1. Get Room by ID: GET /building/\<bid>/floor/\<fid>/room/<rid>
+    * Returns details of a specific room.
+
+1. Update Room Sensor Data: POST /building/\<bid>/floor/\<fid>/room/\<rid>/sensor/\<sid>
+    * Updates temperature, humidity, or CO2 sensor data for a room.
+
+The POST API for sensors can be invoked by actual physical sensors in each room to keep the room data up to date.
+
+## Building a reactive dashboard
+We want to build a reactive front end dashboard that would alert us if the comfort level of any floor, room or building goes out of the acceptable range of [40, 50].
+
+We can use 
+
+### Enter Drasi
+
+
+
+
 This application illustrates the use of Drasi for a hypothetical building management scenario, including:
 
-* The use of Continuous Queries over a Cosmos DB Gremlin database.
+* A PostgreSQL database containing sensor information for all rooms in the building.
+* The use of Continuous Queries .
 * Continuous Queries that include aggregations across hierarchical graph data.
 * The use of the Gremlin Reaction to update a Gremlin database based on the output of a Continuous Query.
 * The use of the SignalR Reaction to integrate Continuous Query output with a React JS Application.

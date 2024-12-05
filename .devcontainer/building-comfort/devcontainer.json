@@ -1,6 +1,7 @@
 {
 	"name": "Building Comfort with Drasi",
 	"image": "node:18-bookworm",
+	"workspaceFolder": "/workspaces/learning/apps/building-comfort",
 	"onCreateCommand": "sed -i 's/\r$//' ./.devcontainer/post-create.sh && sed -i  's/\r$//' ./.devcontainer/on-create.sh && bash ./.devcontainer/on-create.sh",
 	"postCreateCommand": "bash ./.devcontainer/post-create.sh",
 	"postStartCommand": "nohup bash -c 'kubectl port-forward svc/postgres 5432:5432 &'",
@@ -20,10 +21,7 @@
 		"installHelm": false
 	  },
 	  // Install Postgres client
-	  "ghcr.io/robbert229/devcontainer-features/postgresql-client:1": {
-		"version": "15"
-	  },
-	  // Install Python
+	  "ghcr.io/robbert229/devcontainer-features/postgresql-client:1": {},
 	  "ghcr.io/devcontainers/features/python:1": {}
 	},
 	"remoteEnv": {

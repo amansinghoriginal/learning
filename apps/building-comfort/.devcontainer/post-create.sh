@@ -23,12 +23,9 @@ while ( ! kubectl cluster-info ); do
 done
 
 ## Create Postgres service on k3d cluster and forward its port
-kubectl apply -f ./.devcontainer/postgres.yaml
+kubectl apply -f ./devops/data/postgres.yaml
 sleep 15
 kubectl wait --for=condition=ready pod -l app=postgres --timeout=60s
-
-## Install python modules
-pip3 install -r ./.devcontainer/py-requirements.txt
 
 ## Install Drasi
 drasi init
