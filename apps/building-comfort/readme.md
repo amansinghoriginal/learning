@@ -1,11 +1,96 @@
-# Building Comfort Demo Setup
+# Building Comfort with Drasi
 
-This README describes how to deploy the Building Comfort Demo for an Azure-hosted experience. Before proceeding with this doc, it is recommended that you first be familiar with the overview of the Building Comfort Demo, its architecture, and how to self-host it in your cluster.
+This is an example application for a building management scenario that illustrates usage of Drasi.
 
-## Overview
+## Scenario
+Imagine a hypothetical building management scenario where we have a building with several floors, with each floor having several rooms.
+Each room has sensors that measure the following:
+* Temperature
+* CO2 levels
+* Humidity
+
+#### The Database
+All the heirarchical relationships between buildings, floors and room stored in a PostgreSQL DB. The same DB also stores each of the sensor's latest readings. Following is a depiction of the schema:
+
+```plaintext
++--------------------+        +--------------------+        +--------------------+
+|      Building      |        |       Floor        |        |       Room         |
++--------------------+        +--------------------+        +--------------------+
+| id (PK)            |<-------| building_id (FK)   |        | id (PK)            |
+| name               |        | id (PK)            |<-------| floor_id (FK)      |
++--------------------+        | name               |        | name               |
+                              +--------------------+        | temperature        |
+                                                            | humidity           |
+                                                            | co2                |
+                                                            +--------------------+
+```
+
+### The Backend Server
+A python-flask based server hosts the following set of APIs:
+
+1. Get All Buildings: GET /building
+    * Returns all buildings with optional floors and rooms.
+
+1. Get Building by ID: GET /building/\<bid>
+    * Returns details of a specific building.
+    
+1. Get Floors of a Building: GET /building/\<bid>/floor
+    * Returns all floors in a building with optional rooms.
+
+1. Get Floor by ID: GET /building/\<bid>/floor/\<fid>
+    * Returns details of a specific floor.
+
+1. Get Rooms of a Floor: GET /building/\<bid>/floor/\<fid>/room
+    * Returns all rooms on a specific floor.
+
+1. Get Room by ID: GET /building/\<bid>/floor/\<fid>/room/<rid>
+    * Returns details of a specific room.
+
+1. Update Room Sensor Data: POST /building/\<bid>/floor/\<fid>/room/\<rid>/sensor/\<sid>
+    * Updates temperature, humidity, or CO2 sensor data for a room.
+
+The POST API for sensors can be invoked by actual physical sensors in each room to keep the room data up to date.
+
+## Building a reactive dashboard
+Imagine a metric called Comfort Level that is computed using the following simplified formula:
+
+`
+comfortLevel = trunc(50+(temp-72) + (humidity-42) + if( CO2 > 500,(CO2 - 500)/25,0))
+`
+
+The comfort level changes dynamically as the physical parameters of each room change.
+
+A range of 40 to 50 is considered acceptable: a value below 40 indicates that temperature and/or humidity is too low, while a value above 50 indicates that temperature, humidity, and/or CO2 levels are too high.
+
+We want to build a reactive front end dashboard that would alert us if the comfort level of any floor, room or building goes out of the acceptable range of [40, 50].
+
+### Traditional Approach
+A traditional approach for creating a reactive dashboard for such alerts would involve the following steps:
+1. Add additional APIs on backend server to compute comfort level
+    * Expose GET comfort level APIs for rooms, floors and buildoings.
+    * Update existing POST API to reflect changes in comfort level when temp/humidity/co2 levels change.
+    * Emit message through web-sockets or SSE if new comfort level is out of range.
+
+1. Add a real time communication layer (based on frameworks like Flask-SocketIO or SignalR)
+    * Propagates updates in the sensor data to the frontend.
+    * This should implement WebSockets or Server-Sent-Events (SSE) for push notifications.
+
+1. Front end Dashboard
+    * Displays real-time status of buildings, floors, and rooms.
+    * Alerts when the comfort level is out of range.
+
+### Enter Drasi
+With Drasi, we can avoid any changes in our existing backend server (no new APIs or websocket ports). We can also compute any complicated formulas in real time (Comfort Level in this case) and also react in real time.
+
+In this case, we can add the PostgreSQL DB as a Drasi Source by a simple YAML file. We can then write a set of continuously running queries which can compute comfort level in real time. Finally, 
+
+
+
+
 This application illustrates the use of Drasi for a hypothetical building management scenario, including:
 
-* The use of Continuous Queries over a Cosmos DB Gremlin database.
+* A PostgreSQL database containing sensor information for all rooms in the building.
+* The use of Continuous Queries .
 * Continuous Queries that include aggregations across hierarchical graph data.
 * The use of the Gremlin Reaction to update a Gremlin database based on the output of a Continuous Query.
 * The use of the SignalR Reaction to integrate Continuous Query output with a React JS Application.

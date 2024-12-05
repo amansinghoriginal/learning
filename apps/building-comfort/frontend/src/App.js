@@ -286,14 +286,6 @@ function Room(props) {
         CO2: {room.CO2}
       </Grid>
     </Grid>
-    {/* This will cause the comfort level to go below the desired range */}
-    <Button variant="outlined" onClick={e => updateRoom(room.BuildingId, room.FloorId, room.RoomId, 40, 20, 700)}>
-        Break
-    </Button>
-    {/* Resets the comfort level to 46, which is in the desired range of 40-50 */}
-    <Button variant="outlined" onClick={e => updateRoom(room.BuildingId, room.FloorId, room.RoomId, 70, 40, 10)}>
-        Reset
-    </Button>
   </Box>
   )
 }
@@ -310,15 +302,6 @@ function FloorComfortAlert(props) {
   return (
     <Alert severity="warning">{props.FloorName} = {props.ComfortLevel}</Alert>
   );
-}
-
-async function updateRoom(buildingId, floorId, roomId, temperature, humidity, co2) {
-  // Sends a POST request to the Backend function to update the temperature, humidity, and CO2 levels of the room
-  await axios.post(`${config.crudApiUrl}/building/${buildingId}/floor/${floorId}/room/${roomId}/sensor/temp`, { value: temperature });
-  await delay(200);
-  await axios.post(`${config.crudApiUrl}/building/${buildingId}/floor/${floorId}/room/${roomId}/sensor/humidity`, { value: humidity });
-  await delay(200);
-  await axios.post(`${config.crudApiUrl}/building/${buildingId}/floor/${floorId}/room/${roomId}/sensor/co2`, { value: co2 });
 }
 
 function chooseColor(v) {

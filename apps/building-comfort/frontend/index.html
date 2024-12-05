@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Comfort Dashboard with Drasi</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            font-size: 1.5rem;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        iframe {
+            border: none;
+            width: 100%;
+            height: 50%;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        Building Comfort Dashboard with Drasi
+    </header>
+    <main>
+        <iframe src="http://localhost:3000"></iframe>
+        <iframe src="http://localhost:3001"></iframe>
+    </main>
+</body>
+</html>

@@ -14,7 +14,7 @@
 
 apiVersion: v1
 kind: Reaction
-name: signalr-building
+name: building-signalr-hub
 spec:
   kind: SignalR
   queries:
@@ -24,3 +24,5 @@ spec:
     room-alert:
     floor-alert:
     building-comfort-ui:
+  endpoint:
+    gateway: 8080
