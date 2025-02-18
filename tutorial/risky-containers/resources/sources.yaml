@@ -12,20 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-kind: Source
 apiVersion: v1
-name: games
+kind: Source
+name: devops
 spec:
-  kind: CosmosGremlin
-  services:
-    reactivator: 
-      properties:
-        partitionKey: partition
+  kind: PostgreSQL
   properties:
-    accountEndpoint:
+    host: postgres.default.svc.cluster.local
+    user: test
+    port: 5432
+    ssl: false
+    password: test
+    database: tutorial
+    tables:
+      - public.RiskyImage
+---
+apiVersion: v1
+kind: Source
+name: k8s
+spec:
+  kind: Kubernetes 
+  properties:
+    kubeConfig: 
       kind: Secret
-      name: trivia-creds
-      key: accountEndpoint
-    database: Contoso
-    container: Trivia2
-
+      name: k8s-context
+      key: context
