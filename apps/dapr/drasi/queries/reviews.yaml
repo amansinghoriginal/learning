@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ContinuousQuery
+name: reviews-query
+spec:
+  mode: query
+  sources:    
+    subscriptions:
+      - id: reviews-source
+        nodes:
+          - sourceLabel: reviews
+        pipeline:
+          - decode_value
+          - parse_value
+          - promote_review_details
+    middleware:
+      - name: decode_value
+        kind: decoder
+        encoding_type: base64
+        target_property: value
+        strip_quotes: true
+      - name: parse_value
+        kind: parse_json
+        target_property: value
+        output_property: parsed_value
+      - name: promote_review_details
+        kind: promote
+        mappings:
+          - path: "$.parsed_value.review_id"
+            target_name: "reviewId"
+          - path: "$.parsed_value.product_id"
+            target_name: "productId"
+          - path: "$.parsed_value.customer_id"
+            target_name: "customerId"
+          - path: "$.parsed_value.rating"
+            target_name: "rating"
+          - path: "$.parsed_value.review_text"
+            target_name: "reviewText"
+  query: >
+    MATCH
+        (p:reviews)
+    RETURN
+        p.reviewId as reviewId,
+        p.productId as productId,
+        p.customerId as customerId,
+        p.rating as rating,
+        p.reviewText as reviewText
