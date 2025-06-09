@@ -95,8 +95,26 @@ build-dashboard: ## Build dashboard service Docker image
 	k3d image import dashboard:latest -c $(CLUSTER_NAME)
 	@echo -e "$(GREEN)Dashboard service built and imported!$(NC)"
 
+.PHONY: build-catalogue
+build-catalogue: ## Build catalogue service Docker image
+	@echo -e "$(GREEN)Building catalogue service...$(NC)"
+	cd services/catalogue && \
+	docker build -t catalogue:latest .
+	@echo -e "$(YELLOW)Importing image to k3d cluster...$(NC)"
+	k3d image import catalogue:latest -c $(CLUSTER_NAME)
+	@echo -e "$(GREEN)Catalogue service built and imported!$(NC)"
+
+.PHONY: build-notifications
+build-notifications: ## Build notifications service Docker image
+	@echo -e "$(GREEN)Building notifications service...$(NC)"
+	cd services/notifications && \
+	docker build -t notifications:latest .
+	@echo -e "$(YELLOW)Importing image to k3d cluster...$(NC)"
+	k3d image import notifications:latest -c $(CLUSTER_NAME)
+	@echo -e "$(GREEN)Notifications service built and imported!$(NC)"
+
 .PHONY: build-all
-build-all: build-customers build-orders build-products build-reviews build-dashboard ## Build all service Docker images
+build-all: build-customers build-orders build-products build-reviews build-dashboard build-catalogue build-notifications ## Build all service Docker images
 
 # ==================== Service Deployment Commands ====================
 
@@ -190,8 +208,50 @@ deploy-dashboard: deploy-dashboard-infra ## Deploy dashboard service (infra + se
 	kubectl wait --for=condition=Ready pod -l app=dashboard --timeout=300s
 	@echo -e "$(GREEN)Dashboard service deployed successfully!$(NC)"
 
+.PHONY: deploy-catalogue-infra
+deploy-catalogue-infra: ## Deploy catalogue service infrastructure (PostgreSQL + Dapr components)
+	@echo -e "$(GREEN)Deploying catalogue PostgreSQL...$(NC)"
+	kubectl apply -f services/catalogue/k8s/postgres/postgres.yaml
+	@echo -e "$(YELLOW)Waiting for catalogue-db to be ready...$(NC)"
+	kubectl rollout status statefulset/catalogue-db --timeout=300s
+	kubectl wait --for=condition=Ready pod -l app=catalogue-db --timeout=300s
+	@echo -e "$(GREEN)Deploying catalogue Dapr components...$(NC)"
+	kubectl apply -f services/catalogue/k8s/dapr/statestore.yaml
+	@echo -e "$(GREEN)Deploying catalogue Dapr component for Drasi (in drasi-system namespace)...$(NC)"
+	kubectl apply -f services/catalogue/k8s/dapr/statestore-drasi.yaml
+	@echo -e "$(GREEN)Catalogue infrastructure deployed!$(NC)"
+
+.PHONY: deploy-catalogue
+deploy-catalogue: deploy-catalogue-infra ## Deploy catalogue service (infra + service)
+	@echo -e "$(GREEN)Deploying catalogue service...$(NC)"
+	kubectl apply -f services/catalogue/k8s/deployment.yaml
+	kubectl rollout status deployment/catalogue --timeout=300s
+	kubectl wait --for=condition=Ready pod -l app=catalogue --timeout=300s
+	@echo -e "$(GREEN)Catalogue service deployed successfully!$(NC)"
+
+.PHONY: deploy-notifications-infra
+deploy-notifications-infra: ## Deploy notifications service infrastructure (Redis + Dapr components)
+	@echo -e "$(GREEN)Deploying notifications Redis...$(NC)"
+	kubectl apply -f services/notifications/k8s/redis/redis.yaml
+	@echo -e "$(YELLOW)Waiting for notifications-redis to be ready...$(NC)"
+	kubectl rollout status statefulset/notifications-redis --timeout=300s
+	kubectl wait --for=condition=Ready pod -l app=notifications-redis --timeout=300s
+	@echo -e "$(GREEN)Deploying notifications Dapr pubsub components...$(NC)"
+	kubectl apply -f services/notifications/k8s/dapr/pubsub.yaml
+	@echo -e "$(GREEN)Deploying notifications Dapr pubsub component for Drasi (in drasi-system namespace)...$(NC)"
+	kubectl apply -f services/notifications/k8s/dapr/pubsub-drasi.yaml
+	@echo -e "$(GREEN)Notifications infrastructure deployed!$(NC)"
+
+.PHONY: deploy-notifications
+deploy-notifications: deploy-notifications-infra ## Deploy notifications service (infra + service)
+	@echo -e "$(GREEN)Deploying notifications service...$(NC)"
+	kubectl apply -f services/notifications/k8s/deployment.yaml
+	kubectl rollout status deployment/notifications --timeout=300s
+	kubectl wait --for=condition=Ready pod -l app=notifications --timeout=300s
+	@echo -e "$(GREEN)Notifications service deployed successfully!$(NC)"
+
 .PHONY: deploy-all
-deploy-all: deploy-customers deploy-orders deploy-products deploy-reviews deploy-dashboard ## Deploy all services with infrastructure
+deploy-all: deploy-customers deploy-orders deploy-products deploy-reviews deploy-dashboard deploy-catalogue deploy-notifications ## Deploy all services with infrastructure
 
 # ==================== Service Redeploy Commands ====================
 
@@ -240,6 +300,24 @@ redeploy-dashboard: ## Redeploy dashboard service
 	kubectl wait --for=condition=Ready pod -l app=dashboard --timeout=300s
 	@echo -e "$(GREEN)Dashboard service redeployed!$(NC)"
 
+.PHONY: redeploy-catalogue
+redeploy-catalogue: ## Redeploy catalogue service (service only, not infra)
+	@echo -e "$(YELLOW)Redeploying catalogue service...$(NC)"
+	kubectl delete -f services/catalogue/k8s/deployment.yaml --ignore-not-found=true
+	kubectl apply -f services/catalogue/k8s/deployment.yaml
+	kubectl rollout status deployment/catalogue --timeout=300s
+	kubectl wait --for=condition=Ready pod -l app=catalogue --timeout=300s
+	@echo -e "$(GREEN)Catalogue service redeployed!$(NC)"
+
+.PHONY: redeploy-notifications
+redeploy-notifications: ## Redeploy notifications service (service only, not infra)
+	@echo -e "$(YELLOW)Redeploying notifications service...$(NC)"
+	kubectl delete -f services/notifications/k8s/deployment.yaml --ignore-not-found=true
+	kubectl apply -f services/notifications/k8s/deployment.yaml
+	kubectl rollout status deployment/notifications --timeout=300s
+	kubectl wait --for=condition=Ready pod -l app=notifications --timeout=300s
+	@echo -e "$(GREEN)Notifications service redeployed!$(NC)"
+
 # ==================== Service Clean Commands ====================
 
 .PHONY: clean-customers
@@ -281,8 +359,26 @@ clean-dashboard: ## Clean dashboard service and infrastructure
 	-kubectl delete -f services/dashboard/k8s/signalr-ingress.yaml --ignore-not-found=true
 	@echo -e "$(GREEN)Dashboard service cleaned!$(NC)"
 
+.PHONY: clean-catalogue
+clean-catalogue: ## Clean catalogue service and infrastructure (keeps data)
+	@echo -e "$(RED)Cleaning catalogue service...$(NC)"
+	-kubectl delete -f services/catalogue/k8s/deployment.yaml --ignore-not-found=true
+	-kubectl delete -f services/catalogue/k8s/dapr/statestore.yaml --ignore-not-found=true
+	-kubectl delete -f services/catalogue/k8s/dapr/statestore-drasi.yaml --ignore-not-found=true
+	-kubectl delete -f services/catalogue/k8s/postgres/postgres.yaml --ignore-not-found=true
+	@echo -e "$(GREEN)Catalogue service cleaned!$(NC)"
+
+.PHONY: clean-notifications
+clean-notifications: ## Clean notifications service and infrastructure (keeps data)
+	@echo -e "$(RED)Cleaning notifications service...$(NC)"
+	-kubectl delete -f services/notifications/k8s/deployment.yaml --ignore-not-found=true
+	-kubectl delete -f services/notifications/k8s/dapr/pubsub.yaml --ignore-not-found=true
+	-kubectl delete -f services/notifications/k8s/dapr/pubsub-drasi.yaml --ignore-not-found=true
+	-kubectl delete -f services/notifications/k8s/redis/redis.yaml --ignore-not-found=true
+	@echo -e "$(GREEN)Notifications service cleaned!$(NC)"
+
 .PHONY: clean-all
-clean-all: clean-customers clean-orders clean-products clean-reviews clean-dashboard ## Clean all services and infrastructure
+clean-all: clean-customers clean-orders clean-products clean-reviews clean-dashboard clean-catalogue clean-notifications ## Clean all services and infrastructure
 
 # ==================== Deep Clean Commands (removes persistent data) ====================
 
@@ -310,8 +406,20 @@ deep-clean-reviews: clean-reviews ## Deep clean reviews service (removes all dat
 	-kubectl delete pvc reviews-db-data-reviews-db-0 --ignore-not-found=true
 	@echo -e "$(GREEN)Reviews service deep cleaned!$(NC)"
 
+.PHONY: deep-clean-catalogue
+deep-clean-catalogue: clean-catalogue ## Deep clean catalogue service (removes all data)
+	@echo -e "$(RED)Deep cleaning catalogue service data...$(NC)"
+	-kubectl delete pvc catalogue-db-data-catalogue-db-0 --ignore-not-found=true
+	@echo -e "$(GREEN)Catalogue service deep cleaned!$(NC)"
+
+.PHONY: deep-clean-notifications
+deep-clean-notifications: clean-notifications ## Deep clean notifications service (removes all data)
+	@echo -e "$(RED)Deep cleaning notifications service data...$(NC)"
+	-kubectl delete pvc redis-data-notifications-redis-0 --ignore-not-found=true
+	@echo -e "$(GREEN)Notifications service deep cleaned!$(NC)"
+
 .PHONY: deep-clean-all
-deep-clean-all: deep-clean-customers deep-clean-orders deep-clean-products deep-clean-reviews ## Deep clean all services (removes all data)
+deep-clean-all: deep-clean-customers deep-clean-orders deep-clean-products deep-clean-reviews deep-clean-catalogue deep-clean-notifications ## Deep clean all services (removes all data)
 
 # ==================== Utility Commands ====================
 
@@ -328,11 +436,13 @@ status: ## Show status of all services and databases
 	@echo -e "\n$(GREEN)=== Dapr Status ===$(NC)"
 	dapr status -k
 	@echo -e "\n$(GREEN)=== PostgreSQL Databases ===$(NC)"
-	kubectl get statefulsets | grep -E "(customers|orders|products|reviews)-db" || echo "No databases found"
+	kubectl get statefulsets | grep -E "(customers|orders|products|reviews|catalogue)-db" || echo "No databases found"
+	@echo -e "\n$(GREEN)=== Redis Instances ===$(NC)"
+	kubectl get statefulsets | grep -E "notifications-redis" || echo "No Redis instances found"
 	@echo -e "\n$(GREEN)=== Services ===$(NC)"
-	kubectl get pods | grep -E "^(customers|orders|products|reviews)-" || echo "No services found"
+	kubectl get pods | grep -E "^(customers|orders|products|reviews|catalogue|dashboard|notifications)-" || echo "No services found"
 	@echo -e "\n$(GREEN)=== Persistent Volumes ===$(NC)"
-	kubectl get pvc | grep -E "(customers|orders|products|reviews)-db-data" || echo "No PVCs found"
+	kubectl get pvc | grep -E "(customers|orders|products|reviews|catalogue)-db-data|redis-data-notifications" || echo "No PVCs found"
 
 .PHONY: logs-customers
 logs-customers: ## Show logs for customers service
@@ -354,6 +464,14 @@ logs-reviews: ## Show logs for reviews service
 logs-dashboard: ## Show logs for dashboard service
 	kubectl logs -l app=dashboard -f
 
+.PHONY: logs-catalogue
+logs-catalogue: ## Show logs for catalogue service
+	kubectl logs -l app=catalogue -f
+
+.PHONY: logs-notifications
+logs-notifications: ## Show logs for notifications service
+	kubectl logs -l app=notifications -f
+
 .PHONY: port-forward
 port-forward: ## Port forward to access services locally (Ctrl+C to stop)
 	@echo -e "$(GREEN)Starting port forwarding...$(NC)"
@@ -362,7 +480,9 @@ port-forward: ## Port forward to access services locally (Ctrl+C to stop)
 	@echo -e "  Orders:   http://localhost:8001/orders-service"
 	@echo -e "  products:  http://localhost:8001/products-service"
 	@echo -e "  Reviews:  http://localhost:8001/reviews-service"
+	@echo -e "  Catalogue: http://localhost:8001/catalogue-service"
 	@echo -e "  Dashboard: http://localhost:8001/dashboard"
+	@echo -e "  Notifications: http://localhost:8001/notifications-service"
 	@echo -e "$(YELLOW)Press Ctrl+C to stop$(NC)"
 	kubectl port-forward svc/traefik -n kube-system 8001:80
 
@@ -390,6 +510,12 @@ rebuild-redeploy-reviews: build-reviews redeploy-reviews ## Rebuild and redeploy
 
 .PHONY: rebuild-redeploy-dashboard
 rebuild-redeploy-dashboard: build-dashboard redeploy-dashboard ## Rebuild and redeploy dashboard service
+
+.PHONY: rebuild-redeploy-catalogue
+rebuild-redeploy-catalogue: build-catalogue redeploy-catalogue ## Rebuild and redeploy catalogue service
+
+.PHONY: rebuild-redeploy-notifications
+rebuild-redeploy-notifications: build-notifications redeploy-notifications ## Rebuild and redeploy notifications service
 
 # ==================== Service setup Commands ====================
 
@@ -433,8 +559,18 @@ test-orders-apis: ## Run basic tests on orders APIs
 	@echo -e "$(GREEN)Running orders API tests...$(NC)"
 	@cd services/orders/setup && ./test-apis.sh
 
+.PHONY: test-catalogue-apis
+test-catalogue-apis: ## Run basic tests on catalogue APIs
+	@echo -e "$(GREEN)Running catalogue API tests...$(NC)"
+	@cd services/catalogue/setup && ./test-apis.sh
+
+.PHONY: test-notifications-apis
+test-notifications-apis: ## Run basic tests on notifications APIs
+	@echo -e "$(GREEN)Running notifications API tests...$(NC)"
+	@cd services/notifications/setup && ./test-apis.sh
+
 .PHONY: load-all-data
 load-all-data: load-customers-data load-products-data load-reviews-data load-orders-data ## Load initial data for all services
 
 .PHONY: test-all-apis
-test-all-apis: test-customers-apis test-products-apis test-reviews-apis test-orders-apis ## Run basic tests on all service APIs
+test-all-apis: test-customers-apis test-products-apis test-reviews-apis test-orders-apis test-catalogue-apis test-notifications-apis ## Run basic tests on all service APIs

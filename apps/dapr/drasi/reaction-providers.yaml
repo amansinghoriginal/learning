@@ -12,4 +12,5 @@ name: PostDaprPubSub
 spec:
   services:
     reaction:
-      image: reaction-post-dapr-pubsub
+      image: aman/reaction-post-dapr-pubsub:local-fix
+      externalImage: true
