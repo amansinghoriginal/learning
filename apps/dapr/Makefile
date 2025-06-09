@@ -86,8 +86,17 @@ build-reviews: ## Build reviews service Docker image
 	k3d image import reviews:latest -c $(CLUSTER_NAME)
 	@echo -e "$(GREEN)Reviews service built and imported!$(NC)"
 
+.PHONY: build-dashboard
+build-dashboard: ## Build dashboard service Docker image
+	@echo -e "$(GREEN)Building dashboard service...$(NC)"
+	cd services/dashboard && \
+	docker build -t dashboard:latest .
+	@echo -e "$(YELLOW)Importing image to k3d cluster...$(NC)"
+	k3d image import dashboard:latest -c $(CLUSTER_NAME)
+	@echo -e "$(GREEN)Dashboard service built and imported!$(NC)"
+
 .PHONY: build-all
-build-all: build-customers build-orders build-products build-reviews ## Build all service Docker images
+build-all: build-customers build-orders build-products build-reviews build-dashboard ## Build all service Docker images
 
 # ==================== Service Deployment Commands ====================
 
@@ -167,8 +176,22 @@ deploy-reviews: deploy-reviews-infra ## Deploy reviews service (infra + service)
 	kubectl wait --for=condition=Ready pod -l app=reviews --timeout=300s
 	@echo -e "$(GREEN)Reviews service deployed successfully!$(NC)"
 
+.PHONY: deploy-dashboard-infra
+deploy-dashboard-infra: ## Deploy dashboard infrastructure (SignalR ingress)
+	@echo -e "$(GREEN)Deploying SignalR ingress for dashboard...$(NC)"
+	kubectl apply -f services/dashboard/k8s/signalr-ingress.yaml
+	@echo -e "$(GREEN)Dashboard infrastructure deployed!$(NC)"
+
+.PHONY: deploy-dashboard
+deploy-dashboard: deploy-dashboard-infra ## Deploy dashboard service (infra + service)
+	@echo -e "$(GREEN)Deploying dashboard service...$(NC)"
+	kubectl apply -f services/dashboard/k8s/deployment.yaml
+	kubectl rollout status deployment/dashboard --timeout=300s
+	kubectl wait --for=condition=Ready pod -l app=dashboard --timeout=300s
+	@echo -e "$(GREEN)Dashboard service deployed successfully!$(NC)"
+
 .PHONY: deploy-all
-deploy-all: deploy-customers deploy-orders deploy-products deploy-reviews ## Deploy all services with infrastructure
+deploy-all: deploy-customers deploy-orders deploy-products deploy-reviews deploy-dashboard ## Deploy all services with infrastructure
 
 # ==================== Service Redeploy Commands ====================
 
@@ -208,6 +231,15 @@ redeploy-reviews: ## Redeploy reviews service (service only, not infra)
 	kubectl wait --for=condition=Ready pod -l app=reviews --timeout=300s
 	@echo -e "$(GREEN)Reviews service redeployed!$(NC)"
 
+.PHONY: redeploy-dashboard
+redeploy-dashboard: ## Redeploy dashboard service
+	@echo -e "$(YELLOW)Redeploying dashboard service...$(NC)"
+	kubectl delete -f services/dashboard/k8s/deployment.yaml --ignore-not-found=true
+	kubectl apply -f services/dashboard/k8s/deployment.yaml
+	kubectl rollout status deployment/dashboard --timeout=300s
+	kubectl wait --for=condition=Ready pod -l app=dashboard --timeout=300s
+	@echo -e "$(GREEN)Dashboard service redeployed!$(NC)"
+
 # ==================== Service Clean Commands ====================
 
 .PHONY: clean-customers
@@ -242,8 +274,15 @@ clean-reviews: ## Clean reviews service and infrastructure (keeps data)
 	-kubectl delete -f services/reviews/k8s/postgres/postgres.yaml --ignore-not-found=true
 	@echo -e "$(GREEN)Reviews service cleaned!$(NC)"
 
+.PHONY: clean-dashboard
+clean-dashboard: ## Clean dashboard service and infrastructure
+	@echo -e "$(RED)Cleaning dashboard service...$(NC)"
+	-kubectl delete -f services/dashboard/k8s/deployment.yaml --ignore-not-found=true
+	-kubectl delete -f services/dashboard/k8s/signalr-ingress.yaml --ignore-not-found=true
+	@echo -e "$(GREEN)Dashboard service cleaned!$(NC)"
+
 .PHONY: clean-all
-clean-all: clean-customers clean-orders clean-products clean-reviews ## Clean all services and infrastructure
+clean-all: clean-customers clean-orders clean-products clean-reviews clean-dashboard ## Clean all services and infrastructure
 
 # ==================== Deep Clean Commands (removes persistent data) ====================
 
@@ -311,6 +350,10 @@ logs-products: ## Show logs for products service
 logs-reviews: ## Show logs for reviews service
 	kubectl logs -l app=reviews -f
 
+.PHONY: logs-dashboard
+logs-dashboard: ## Show logs for dashboard service
+	kubectl logs -l app=dashboard -f
+
 .PHONY: port-forward
 port-forward: ## Port forward to access services locally (Ctrl+C to stop)
 	@echo -e "$(GREEN)Starting port forwarding...$(NC)"
@@ -319,6 +362,7 @@ port-forward: ## Port forward to access services locally (Ctrl+C to stop)
 	@echo -e "  Orders:   http://localhost:8001/orders-service"
 	@echo -e "  products:  http://localhost:8001/products-service"
 	@echo -e "  Reviews:  http://localhost:8001/reviews-service"
+	@echo -e "  Dashboard: http://localhost:8001/dashboard"
 	@echo -e "$(YELLOW)Press Ctrl+C to stop$(NC)"
 	kubectl port-forward svc/traefik -n kube-system 8001:80
 
@@ -343,6 +387,9 @@ rebuild-redeploy-products: build-products redeploy-products ## Rebuild and redep
 
 .PHONY: rebuild-redeploy-reviews
 rebuild-redeploy-reviews: build-reviews redeploy-reviews ## Rebuild and redeploy reviews service
+
+.PHONY: rebuild-redeploy-dashboard
+rebuild-redeploy-dashboard: build-dashboard redeploy-dashboard ## Rebuild and redeploy dashboard service
 
 # ==================== Service setup Commands ====================
 

@@ -4,112 +4,145 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Dapr-based microservices e-commerce demo application consisting of four Python/FastAPI services:
-- **customers**: Customer management with loyalty tiers
-- **orders**: Order processing and status management  
-- **products**: Product catalog management
-- **reviews**: Product review system
-
-Each service uses Dapr for state management and service-to-service communication, with PostgreSQL as the backing state store.
+This is a Dapr-based microservices e-commerce application with real-time monitoring capabilities powered by Drasi. The system demonstrates modern cloud-native patterns including service mesh, distributed state management, and real-time data change processing.
 
 ## Common Development Commands
 
-### Build Commands
+### Quick Start
 ```bash
+# Complete setup, build, and deploy everything
+make quickstart
+
+# Show all available commands
+make help
+```
+
+### Cluster Management
+```bash
+# Setup k3d cluster with Dapr
+make setup
+
+# Teardown everything
+make teardown
+
+# Check status of all services
+make status
+```
+
+### Building Services
+```bash
+# Build all services
+make build-all
+
 # Build individual services
 make build-customers
 make build-orders
 make build-products
 make build-reviews
-
-# Build all services
-make build-all
+make build-dashboard
 ```
 
-### Deployment Commands
+### Deployment
 ```bash
-# Complete setup (create cluster, install Dapr, build and deploy all)
-make quickstart
+# Deploy all services with infrastructure
+make deploy-all
 
-# Deploy individual services with infrastructure
+# Deploy only dashboard infrastructure (SignalR ingress)
+make deploy-dashboard-infra
+
+# Deploy individual services
 make deploy-customers
 make deploy-orders
 make deploy-products
 make deploy-reviews
+make deploy-dashboard
 
-# Deploy all services
-make deploy-all
-
-# Redeploy services (without infrastructure)
+# Redeploy service (keeps infrastructure)
 make redeploy-customers
 make redeploy-orders
 make redeploy-products
 make redeploy-reviews
+make redeploy-dashboard
 ```
 
-### Testing Commands
+### Development Access
 ```bash
-# Load initial test data
-make load-customers-data
-make load-orders-data
-make load-products-data
-make load-reviews-data
-
-# Run API tests
-make test-customers-apis
-make test-orders-apis
-make test-products-apis
-make test-reviews-apis
-
 # Port forward to access services locally
 make port-forward
+# Services available at:
+# - Customers: http://localhost:8001/customers-service
+# - Orders: http://localhost:8001/orders-service
+# - Products: http://localhost:8001/products-service
+# - Reviews: http://localhost:8001/reviews-service
+# - Dashboard: http://localhost:8001/dashboard
 ```
 
-### Debugging Commands
+### Testing and Data Loading
 ```bash
+# Load initial data
+make load-all-data
+
+# Test APIs
+make test-all-apis
+
 # View logs
 make logs-customers
 make logs-orders
 make logs-products
 make logs-reviews
-
-# Check status
-make status
-
-# Get pod information
-make get-pods
+make logs-dashboard
 ```
 
-## Architecture Notes
+### Dashboard Development
+```bash
+cd services/dashboard
+npm install
+npm start          # Development server on port 3000
+npm run build      # Production build
+npm run preview    # Preview production build
+```
 
-### Service Structure
-Each service follows identical patterns:
-- `code/main.py`: FastAPI application with REST endpoints
-- `code/models.py`: Pydantic data models
-- `code/dapr_client.py`: Dapr client wrapper for state management
-- `k8s/deployment.yaml`: Kubernetes deployment with Dapr sidecar
-- `k8s/dapr/statestore.yaml`: Dapr state store configuration
-- `k8s/postgres/postgres.yaml`: PostgreSQL database deployment
+## Architecture Overview
 
-### Key Patterns
-1. **State Management**: All state operations go through Dapr's state API, not direct database access
-2. **Service Discovery**: Services communicate via Dapr's service invocation
-3. **Configuration**: Each service has its own PostgreSQL instance configured as a Dapr state store
-4. **Testing**: Shell scripts in `setup/` directories handle data loading and API testing
+### Microservices Structure
 
-### Important Files
-- `/Makefile`: Central command orchestration - always check here first for available commands
-- `/services/common/setup/common-utils.sh`: Shared utilities for testing scripts
-- Service endpoints are exposed on ports 31001-31004 when using `make port-forward`
+Each service (`customers`, `orders`, `products`, `reviews`) follows the same pattern:
+- **Python/FastAPI** backend with consistent API structure
+- **PostgreSQL** database per service with Dapr state store abstraction
+- **Kubernetes** deployments with Dapr sidecar injection
+- Isolated namespaces and database-per-service pattern
 
-## Development Workflow
+### Drasi Integration
 
-1. Make changes to service code in `/services/{service-name}/code/`
-2. Build the service: `make build-{service-name}`
-3. Redeploy: `make redeploy-{service-name}`
-4. Test: `make test-{service-name}-apis`
-5. Check logs if needed: `make logs-{service-name}`
+Drasi provides real-time monitoring by:
+1. **Sources** connect to each service's PostgreSQL database to capture changes
+2. **Continuous Queries** detect complex business conditions:
+   - `at-risk-orders` - Orders where stock quantity < order quantity
+   - `delayed-gold-orders` - Gold tier customers with orders stuck in processing
+3. **SignalR Reaction** broadcasts query results to the dashboard in real-time
 
-## Drasi Integration
+The dashboard receives these updates without polling, showing:
+- **Stock Risk View** - Orders at risk due to insufficient inventory
+- **Gold Customer Delays View** - High-value customers experiencing delays
 
-The `/drasi/` directory contains query and reaction configurations for event-driven data processing. These YAML files define continuous queries over the service data but are not part of the core service functionality.
+### Key Technologies
+
+- **Dapr** - Distributed application runtime for service communication and state management
+- **Drasi** - Data change processing platform for real-time monitoring
+- **k3d** - Lightweight Kubernetes for local development
+- **Traefik** - Ingress controller for routing
+- **SignalR** - Real-time communication protocol for dashboard updates
+
+### Development Patterns
+
+1. **Service Communication**: Services communicate through Dapr's service invocation
+2. **State Management**: Each service uses Dapr state store backed by PostgreSQL
+3. **Real-time Updates**: Drasi continuous queries + SignalR for push-based updates
+4. **Infrastructure as Code**: All configurations in Kubernetes YAML manifests
+5. **Developer Experience**: Comprehensive Makefile for common operations
+
+When modifying services, ensure:
+- API changes maintain compatibility with Drasi queries
+- Database schema changes are reflected in Drasi source configurations
+- New business monitoring needs are implemented as Drasi continuous queries
+- Dashboard components properly handle SignalR connection lifecycle

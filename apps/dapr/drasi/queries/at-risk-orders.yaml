@@ -81,5 +81,6 @@ spec:
         o.orderStatus AS orderStatus,
         oi.quantity AS quantity,
         p.productId AS productId,
+        p.productName AS productName,
         p.stockOnHand AS stockOnHand
         
