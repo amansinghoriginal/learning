@@ -1,45 +1,57 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import { config } from '../config'
 
 const API_BASE_URL = config.apiBaseUrl
 
+interface ApiErrorResponse {
+  detail?: string;
+}
+
 export const productsApi = {
-  incrementStock: async (productId: string, quantity: number) => {
+  incrementStock: async (productId: string, quantityToIncrement: number) => {
     try {
-      // First get the current product
-      const response = await axios.get(`${API_BASE_URL}/products-service/products/${productId}`)
-      const currentStock = response.data.stock_on_hand || 0
-      
-      // Update with increased stock
-      await axios.put(`${API_BASE_URL}/products-service/products/${productId}`, {
-        ...response.data,
-        stock_on_hand: currentStock + quantity
-      })
-      
-      return { success: true }
+      const response = await axios.put(`${API_BASE_URL}/products-service/products/${productId}/increment`, {
+        quantity: quantityToIncrement
+      });
+      console.log('Stock incremented successfully:', response.data);
+      return { success: true, data: response.data };
     } catch (error) {
-      console.error('Error incrementing stock:', error)
-      return { success: false, error }
+      console.error('Error incrementing stock:', error);
+      let errorMessage = 'An unknown error occurred';
+      let errorDetail: string | undefined = undefined;
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError<ApiErrorResponse>;
+        errorMessage = axiosError.message;
+        errorDetail = axiosError.response?.data?.detail;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      return { success: false, error: { message: errorMessage, detail: errorDetail || errorMessage } };
     }
   }
-}
+};
 
 export const ordersApi = {
   cancelOrder: async (orderId: string) => {
     try {
-      // Get current order
-      const response = await axios.get(`${API_BASE_URL}/orders-service/orders/${orderId}`)
-      
-      // Update status to CANCELLED
-      await axios.put(`${API_BASE_URL}/orders-service/orders/${orderId}`, {
-        ...response.data,
-        status: 'CANCELLED'
-      })
-      
-      return { success: true }
+      const response = await axios.put(`${API_BASE_URL}/orders-service/orders/${orderId}/status`, {
+        status: 'CANCELLED' // Directly send the new status
+      });
+      console.log('Order cancelled successfully:', response.data);
+      return { success: true, data: response.data };
     } catch (error) {
-      console.error('Error cancelling order:', error)
-      return { success: false, error }
+      console.error('Error cancelling order:', error);
+      let errorMessage = 'An unknown error occurred';
+      let errorDetail: string | undefined = undefined;
+
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError<ApiErrorResponse>;
+        errorMessage = axiosError.message;
+        errorDetail = axiosError.response?.data?.detail;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      return { success: false, error: { message: errorMessage, detail: errorDetail || errorMessage } };
     }
   }
-}
+};

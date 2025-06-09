@@ -3,12 +3,11 @@ import { Package, Crown, TrendingUp } from 'lucide-react';
 import { config } from '../config';
 import StockRiskView from './StockRiskView';
 import GoldCustomerDelaysView from './GoldCustomerDelaysView';
-import ConnectionStatus from './ConnectionStatus'; // Assuming you have this or will create it
+import ConnectionStatus from './ConnectionStatus';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'stock' | 'gold'>('stock');
-  const [stockCount, setStockCount] = useState(0);
-  const [goldCount, setGoldCount] = useState(0);
+  // stockCount and goldCount state variables removed
 
   const { signalrUrl, stockQueryId, goldQueryId } = config;
 
@@ -55,11 +54,6 @@ export default function Dashboard() {
               <div className="flex items-center">
                 <Package className="w-5 h-5 mr-2" />
                 Stock Risk Orders
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                  stockCount > 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {stockCount}
-                </span>
               </div>
             </button>
             <button
@@ -73,11 +67,6 @@ export default function Dashboard() {
               <div className="flex items-center">
                 <Crown className="w-5 h-5 mr-2" />
                 Gold Customer Delays
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                  goldCount > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {goldCount}
-                </span>
               </div>
             </button>
           </nav>
@@ -90,14 +79,14 @@ export default function Dashboard() {
           <StockRiskView
             signalrUrl={signalrUrl}
             queryId={stockQueryId}
-            onCountChange={setStockCount}
+            // onCountChange prop removed
           />
         )}
         {activeTab === 'gold' && (
           <GoldCustomerDelaysView
             signalrUrl={signalrUrl}
             queryId={goldQueryId}
-            onCountChange={setGoldCount}
+            // onCountChange prop removed
           />
         )}
       </div>

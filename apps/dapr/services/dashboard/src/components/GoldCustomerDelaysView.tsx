@@ -1,12 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { ResultSet } from '@drasi/signalr-react';
-import { Crown, Clock } from 'lucide-react'; // Users icon not in spec for this card, Crown is
+import { Crown, Clock } from 'lucide-react';
 import type { GoldCustomerDelay } from '../types';
 
 interface GoldCustomerDelaysViewProps {
   signalrUrl: string;
   queryId: string;
-  onCountChange: (count: number) => void;
 }
 
 // Format duration function from spec
@@ -93,7 +92,7 @@ const GoldCustomerCard = ({ issue }: GoldCustomerCardProps) => {
   );
 };
 
-export default function GoldCustomerDelaysView({ signalrUrl, queryId, onCountChange }: GoldCustomerDelaysViewProps) {
+export default function GoldCustomerDelaysView({ signalrUrl, queryId }: GoldCustomerDelaysViewProps) {
   const [goldIssues, setGoldIssues] = useState<GoldCustomerDelay[]>([]);
   const currentRawItemsRef = useRef<GoldCustomerDelay[]>([]);
   
@@ -101,7 +100,6 @@ export default function GoldCustomerDelaysView({ signalrUrl, queryId, onCountCha
     const rawItems = [...currentRawItemsRef.current];
     currentRawItemsRef.current = [];
     setGoldIssues(rawItems);
-    onCountChange(rawItems.length);
   };
 
   if (!queryId) {
@@ -139,7 +137,6 @@ export default function GoldCustomerDelaysView({ signalrUrl, queryId, onCountCha
   );
 }
 
-// Define RenderWatcher here if not importing from a shared file
 const RenderWatcher = ({ onRender }: { onRender: () => void }) => {
   useEffect(() => {
     const timeoutId = setTimeout(onRender, 0);
