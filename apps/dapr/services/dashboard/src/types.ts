@@ -5,6 +5,7 @@ export interface StockIssueItem {
   productId: string
   stockOnHand: number
   quantity: number
+  productName: string
 }
 
 export interface GoldCustomerDelay {
@@ -12,6 +13,6 @@ export interface GoldCustomerDelay {
   customerId: string
   customerName: string
   customerEmail: string
-  loyaltyTier: string
   orderStatus: string
+  waitingSince: string
 }

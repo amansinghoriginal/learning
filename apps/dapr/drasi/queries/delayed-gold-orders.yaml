@@ -64,15 +64,16 @@ spec:
     WHERE
         c.loyaltyTier = 'GOLD'
     WITH
-        o, c, drasi.changeDateTime(o) as orderChangeTimestamp
+        o, c, drasi.changeDateTime(o) as waitingSince
     WHERE
+        waitingSince != datetime({epochMillis: 0}) AND
         drasi.trueFor(o.orderStatus = 'PROCESSING', duration ({ seconds: 10 }))
     RETURN
         o.orderId AS orderId,
         c.customerId AS customerId,
         c.customerName AS customerName,
         c.customerEmail AS customerEmail,
-        c.loyaltyTier AS loyaltyTier,
-        o.orderStatus AS orderStatus
+        o.orderStatus AS orderStatus,
+        waitingSince
 
         

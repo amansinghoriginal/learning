@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-import { Clock, Crown } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { ResultSet } from '@drasi/signalr-react'
+import { UserCheck, Clock } from 'lucide-react'
 import type { GoldCustomerDelay } from '../types'
 
 interface GoldCustomerDelaysViewProps {
@@ -9,125 +9,110 @@ interface GoldCustomerDelaysViewProps {
   onCountChange: (count: number) => void
 }
 
-export default function GoldCustomerDelaysView({ signalrUrl, queryId, onCountChange }: GoldCustomerDelaysViewProps) {
-  const [currentTime, setCurrentTime] = useState(Date.now())
-  const [processingStartTimes] = useState(new Map<string, number>())
-  
-  // Update current time every second for live duration display
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(Date.now())
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
-  
-  const formatDuration = (orderId: string) => {
-    // In real implementation, this would come from the Drasi query result
-    // For now, we'll track when we first see each order
-    if (!processingStartTimes.has(orderId)) {
-      processingStartTimes.set(orderId, Date.now() - Math.floor(Math.random() * 60000) - 10000)
-    }
-    
-    const startTime = processingStartTimes.get(orderId)!
-    const seconds = Math.floor((currentTime - startTime) / 1000)
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    
-    if (minutes > 0) {
-      return `${minutes}m ${remainingSeconds}s`
-    }
-    return `${seconds}s`
+// Helper function to calculate and format elapsed time (can remain top-level)
+const calculateElapsedTime = (waitingSinceISO: string, currentTime: number): string => {
+  if (!waitingSinceISO) {
+    return 'N/A';
   }
-  
-  const handleInvestigateOrder = (orderId: string) => {
-    // In a real implementation, this could open a detailed view or redirect
-    console.log(`Investigating order: ${orderId}`)
+  const waitingSinceTime = new Date(waitingSinceISO).getTime();
+
+  if (isNaN(waitingSinceTime) || waitingSinceTime > currentTime) {
+    return 'N/A';
   }
-  
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">Gold Customer Order Delays</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Gold tier customers with orders stuck in PROCESSING state for over 10 seconds
-        </p>
-      </div>
-      
-      <ResultSet url={signalrUrl} queryId={queryId}>
-        {(items: GoldCustomerDelay[]) => {
-          console.log(`[GoldCustomerDelaysView - ${queryId}] Received items from ResultSet:`, JSON.stringify(items));
-          // Handle case where items might not be an array yet
-          const itemsArray = Array.isArray(items) ? items : []
-          
-          // Update the count in the parent component
-          onCountChange(itemsArray.length)
-          
-          if (itemsArray.length === 0) {
-            return (
-              <div className="text-center py-12 text-gray-500">
-                No delayed orders for Gold customers currently detected
-              </div>
-            )
-          }
-          
-          return (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {itemsArray.map((issue) => (
-                <div key={issue.orderId} className="bg-white rounded-lg shadow-md overflow-hidden border-2 border-yellow-300">
-                  <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Crown className="w-5 h-5 text-white" />
-                        <span className="text-white font-semibold">Gold Customer</span>
-                      </div>
-                      <Clock className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">{issue.customerName}</h3>
-                      <p className="text-sm text-gray-600">{issue.customerEmail}</p>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Order ID</span>
-                        <span className="text-sm font-medium">{issue.orderId}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Customer ID</span>
-                        <span className="text-sm font-medium">{issue.customerId}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Status</span>
-                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-semibold">
-                          {issue.orderStatus}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Stuck Duration</span>
-                        <span className="text-sm font-bold text-red-600 tabular-nums">
-                          {formatDuration(issue.orderId)}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t">
-                      <button 
-                        onClick={() => handleInvestigateOrder(issue.orderId)}
-                        className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-100 transition-colors"
-                      >
-                        Investigate Order
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
-        }}
-      </ResultSet>
-    </div>
-  )
+  const seconds = Math.floor((currentTime - waitingSinceTime) / 1000);
+  return `${seconds}s`;
+};
+
+// New component for individual ticking rows
+interface TickingGoldCustomerDelayRowProps {
+  item: GoldCustomerDelay;
 }
+
+const TickingGoldCustomerDelayRow = ({ item }: TickingGoldCustomerDelayRowProps) => {
+  const [elapsedTime, setElapsedTime] = useState(calculateElapsedTime(item.waitingSince, window.Date.now()));
+
+  useEffect(() => {
+    const timerId = setInterval(() => {
+      setElapsedTime(calculateElapsedTime(item.waitingSince, window.Date.now()));
+    }, 1000);
+    // Clear interval on component unmount or if item.waitingSince changes
+    return () => clearInterval(timerId);
+  }, [item.waitingSince]); // Dependency array ensures effect re-runs if the item itself changes
+
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.orderId}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.customerName} ({item.customerId})</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.customerEmail}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm">
+        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+          item.orderStatus === 'PROCESSING' ? 'bg-orange-100 text-orange-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {item.orderStatus}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{elapsedTime}</td>
+    </tr>
+  );
+};
+
+
+export default function GoldCustomerDelaysView({ signalrUrl, queryId, onCountChange }: GoldCustomerDelaysViewProps) {
+  const [itemCount, setItemCount] = useState(0);
+  let renderedItemCount = 0; // Workaround for counting items
+
+  useEffect(() => {
+    onCountChange(itemCount);
+  }, [itemCount, onCountChange]);
+
+  // Removed currentTime state and its associated useEffect from here
+
+  return (
+    <div className="bg-white shadow-md rounded-lg p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-700 flex items-center">
+          <UserCheck className="w-6 h-6 mr-2 text-yellow-500" />
+          Delayed Gold Customer Orders
+        </h2>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center">
+                <Clock className="w-4 h-4 mr-1" /> Waiting Time
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            <ResultSet url={signalrUrl} queryId={queryId}>
+              {(item: GoldCustomerDelay) => {
+                renderedItemCount++;
+                // Use the new TickingGoldCustomerDelayRow component
+                // The key prop is important here for React's list reconciliation
+                return <TickingGoldCustomerDelayRow key={item.orderId} item={item} />;
+              }}
+            </ResultSet>
+          </tbody>
+        </table>
+        <RenderWatcher onRender={() => {
+          if (itemCount !== renderedItemCount) {
+            setItemCount(renderedItemCount);
+          }
+        }} />
+      </div>
+    </div>
+  );
+}
+
+const RenderWatcher = ({ onRender }: { onRender: () => void }) => {
+  useEffect(() => {
+    onRender();
+  });
+  return null;
+};
