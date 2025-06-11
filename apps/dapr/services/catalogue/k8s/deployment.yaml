@@ -16,7 +16,7 @@ spec:
       annotations:
         dapr.io/enabled: "true"
         dapr.io/app-id: "catalogue"
-        dapr.io/app-port: "8000"
+        dapr.io/app-port: "80"
         dapr.io/enable-api-logging: "true"
         dapr.io/log-level: "info"
     spec:
@@ -25,7 +25,7 @@ spec:
         image: catalogue:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 8000
+        - containerPort: 80
           name: http
         env:
         - name: DAPR_STORE_NAME
@@ -35,13 +35,13 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: 8000
+            port: 80
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /health
-            port: 8000
+            port: 80
           initialDelaySeconds: 15
           periodSeconds: 20
         resources:
@@ -64,7 +64,7 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 8000
+    targetPort: 80
     protocol: TCP
   type: ClusterIP
 ---

@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from models import ReviewItem, ReviewCreateRequest, ReviewUpdateRequest, ReviewResponse
+from models import ReviewItem, ReviewCreateRequest, ReviewUpdateRequest, ReviewResponse, ReviewListResponse
 from dapr_client import DaprStateStore
 
 # Configure logging
@@ -67,6 +67,46 @@ def get_state_store() -> DaprStateStore:
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "reviews"}
+
+
+@app.get("/reviews", response_model=ReviewListResponse)
+async def list_reviews(
+    store: DaprStateStore = Depends(get_state_store)
+):
+    """Get all reviews."""
+    start_time = time.time()
+    
+    try:
+        # Simple query with empty filter to get all items
+        query = {
+            "filter": {}
+        }
+        
+        # Execute the query
+        results, _ = await store.query_items(query)
+        
+        # Convert results to ReviewResponse objects
+        items = []
+        for result in results:
+            try:
+                review_item = ReviewItem.from_db_dict(result['value'])
+                items.append(ReviewResponse.from_review_item(review_item))
+            except Exception as e:
+                logger.warning(f"Failed to parse item with key {result['key']}: {str(e)}")
+                continue
+        
+        elapsed = (time.time() - start_time) * 1000
+        logger.info(f"Retrieved {len(items)} reviews in {elapsed:.2f}ms")
+        
+        return ReviewListResponse(items=items, total=len(items))
+        
+    except Exception as e:
+        elapsed = (time.time() - start_time) * 1000
+        logger.error(f"Failed to list reviews after {elapsed:.2f}ms: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list reviews: {str(e)}"
+        )
 
 
 @app.post("/reviews", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)

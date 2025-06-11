@@ -39,7 +39,10 @@ app = FastAPI(
     description="Read-only service for product catalogue data populated by Drasi",
     version="1.0.0",
     lifespan=lifespan,
-    root_path="/catalogue-service"
+    root_path="/catalogue-service",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 # Add CORS middleware
@@ -62,13 +65,13 @@ def get_state_store() -> DaprStateStore:
     return state_store
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "catalogue"}
 
 
-@app.get("/catalogue/{product_id}", response_model=CatalogueResponse)
+@app.get("/api/catalogue/{product_id}", response_model=CatalogueResponse)
 async def get_product_catalogue(
     product_id: int,
     store: DaprStateStore = Depends(get_state_store)
@@ -103,7 +106,7 @@ async def get_product_catalogue(
         )
 
 
-@app.get("/catalogue", response_model=CatalogueListResponse)
+@app.get("/api/catalogue", response_model=CatalogueListResponse)
 async def list_catalogue_items(
     store: DaprStateStore = Depends(get_state_store)
 ):
@@ -147,7 +150,7 @@ async def list_catalogue_items(
         )
 
 
-@app.get("/")
+@app.get("/api")
 async def root():
     """Root endpoint with service information."""
     return {
@@ -155,9 +158,11 @@ async def root():
         "version": "1.0.0",
         "description": "Read-only service for product catalogue data populated by Drasi",
         "endpoints": {
-            "health": "/health",
-            "get_product": "/catalogue/{product_id}",
-            "list_products": "/catalogue"
+            "health": "/api/health",
+            "get_product": "/api/catalogue/{product_id}",
+            "list_products": "/api/catalogue",
+            "docs": "/api/docs",
+            "redoc": "/api/redoc"
         }
     }
 

@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from models import CustomerItem, CustomerCreateRequest, CustomerUpdateRequest, CustomerResponse, LoyaltyTier
+from models import CustomerItem, CustomerCreateRequest, CustomerUpdateRequest, CustomerResponse, CustomerListResponse, LoyaltyTier
 from dapr_client import DaprStateStore
 
 # Configure logging
@@ -67,6 +67,46 @@ def get_state_store() -> DaprStateStore:
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "customers"}
+
+
+@app.get("/customers", response_model=CustomerListResponse)
+async def list_customers(
+    store: DaprStateStore = Depends(get_state_store)
+):
+    """Get all customers."""
+    start_time = time.time()
+    
+    try:
+        # Simple query with empty filter to get all items
+        query = {
+            "filter": {}
+        }
+        
+        # Execute the query
+        results, _ = await store.query_items(query)
+        
+        # Convert results to CustomerResponse objects
+        items = []
+        for result in results:
+            try:
+                customer_item = CustomerItem.from_db_dict(result['value'])
+                items.append(CustomerResponse.from_customer_item(customer_item))
+            except Exception as e:
+                logger.warning(f"Failed to parse item with key {result['key']}: {str(e)}")
+                continue
+        
+        elapsed = (time.time() - start_time) * 1000
+        logger.info(f"Retrieved {len(items)} customers in {elapsed:.2f}ms")
+        
+        return CustomerListResponse(items=items, total=len(items))
+        
+    except Exception as e:
+        elapsed = (time.time() - start_time) * 1000
+        logger.error(f"Failed to list customers after {elapsed:.2f}ms: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list customers: {str(e)}"
+        )
 
 
 @app.post("/customers", response_model=CustomerResponse, status_code=status.HTTP_201_CREATED)

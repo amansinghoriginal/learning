@@ -1,6 +1,6 @@
 kind: Reaction
 apiVersion: v1
-name: sync-dapr-statestore
+name: maintain-product-catalogue
 spec:
   kind: SyncDaprStateStore
   queries:

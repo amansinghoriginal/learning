@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, List
+from datetime import datetime
+from enum import Enum
 
 
 class LowStockEvent(BaseModel):
@@ -69,3 +71,50 @@ class NotificationStatus:
         self.error_count = 0
         self.last_low_stock_event = None
         self.last_critical_event = None
+
+
+class EventType(str, Enum):
+    """Types of notification events."""
+    LOW_STOCK = "low_stock"
+    CRITICAL_STOCK = "critical_stock"
+    ERROR = "error"
+
+
+class NotificationEvent(BaseModel):
+    """Model for storing notification events in history."""
+    id: str = Field(..., description="Unique event ID")
+    type: EventType = Field(..., description="Type of event")
+    timestamp: datetime = Field(..., description="When the event occurred")
+    product_id: int = Field(..., description="Product ID")
+    product_name: str = Field(..., description="Product name")
+    details: Dict[str, Any] = Field(..., description="Event-specific details")
+    recipients: List[str] = Field(default_factory=list, description="Email recipients")
+    
+    def dict(self, **kwargs):
+        """Override dict to handle datetime and enum serialization."""
+        d = super().dict(**kwargs)
+        if isinstance(d.get('timestamp'), datetime):
+            d['timestamp'] = d['timestamp'].isoformat()
+        if isinstance(d.get('type'), EventType):
+            d['type'] = d['type'].value
+        return d
+
+
+class WebSocketMessage(BaseModel):
+    """Message format for WebSocket communications."""
+    type: str = Field(..., description="Message type: event, stats, connected")
+    data: Any = Field(..., description="Message payload")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Message timestamp")
+    
+    def dict(self, **kwargs):
+        """Override dict to handle datetime serialization."""
+        d = super().dict(**kwargs)
+        if isinstance(d.get('timestamp'), datetime):
+            d['timestamp'] = d['timestamp'].isoformat()
+        return d
+
+
+class EventHistory(BaseModel):
+    """Container for event history."""
+    events: List[NotificationEvent] = Field(default_factory=list, description="List of recent events")
+    max_size: int = Field(100, description="Maximum number of events to store")

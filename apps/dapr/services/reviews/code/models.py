@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, validator
-from typing import Optional
+from typing import Optional, List
 
 
 class ReviewItem(BaseModel):
@@ -84,3 +84,8 @@ class ReviewResponse(BaseModel):
             rating=item.rating,
             reviewText=item.reviewText if item.reviewText is not None else ""
         )
+
+
+class ReviewListResponse(BaseModel):
+    items: List[ReviewResponse]
+    total: int

@@ -95,3 +95,8 @@ class OrderResponse(BaseModel):
             items=order.items,
             status=order.status
         )
+
+
+class OrderListResponse(BaseModel):
+    items: List[OrderResponse]
+    total: int

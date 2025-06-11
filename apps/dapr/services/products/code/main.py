@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from models import ProductItem, ProductCreateRequest, StockUpdateRequest, ProductResponse
+from models import ProductItem, ProductCreateRequest, StockUpdateRequest, ProductResponse, ProductListResponse
 from dapr_client import DaprStateStore
 
 # Configure logging
@@ -66,6 +66,48 @@ def get_state_store() -> DaprStateStore:
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "products"}
+
+
+@app.get("/products", response_model=ProductListResponse)
+async def list_products(
+    store: DaprStateStore = Depends(get_state_store)
+):
+    """Get all products."""
+    start_time = time.time()
+    
+    try:
+        # Simple query with empty filter to get all items
+        query = {
+            "filter": {}
+        }
+        
+        # Execute the query
+        results, _ = await store.query_items(query)
+        
+        # Convert results to ProductResponse objects
+        items = []
+        for result in results:
+            try:
+                product_item = ProductItem.from_db_dict(result['value'])
+                items.append(ProductResponse.from_product_item(product_item))
+            except Exception as e:
+                logger.warning(f"Failed to parse item with key {result['key']}: {str(e)}")
+                continue
+        
+        elapsed = (time.time() - start_time) * 1000
+        logger.info(f"Retrieved {len(items)} products in {elapsed:.2f}ms")
+        
+        return ProductListResponse(
+            items=items,
+            total=len(items)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error listing products: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list products: {str(e)}"
+        )
 
 
 @app.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)

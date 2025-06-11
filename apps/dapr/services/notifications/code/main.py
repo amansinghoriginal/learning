@@ -2,12 +2,16 @@ import logging
 import os
 import json
 import time
+import uuid
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List, Set
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from dapr.ext.fastapi import DaprApp
 from dapr.clients import DaprClient
 
@@ -16,7 +20,11 @@ from models import (
     CriticalStockEvent, 
     UnpackedDrasiEvent,
     NotificationStatus,
-    NotificationResponse
+    NotificationResponse,
+    EventType,
+    NotificationEvent,
+    WebSocketMessage,
+    EventHistory
 )
 
 # Configure logging
@@ -29,6 +37,52 @@ logger = logging.getLogger(__name__)
 # Global notification status tracking
 notification_status = NotificationStatus()
 
+# Event history for UI
+event_history = EventHistory(max_size=100)
+
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Set[WebSocket] = set()
+        self.max_connections = 10  # Limit connections to prevent resource exhaustion
+        self._lock = asyncio.Lock()
+
+    async def connect(self, websocket: WebSocket):
+        async with self._lock:
+            # Limit number of connections
+            if len(self.active_connections) >= self.max_connections:
+                logger.warning(f"Rejecting WebSocket connection: max connections ({self.max_connections}) reached")
+                await websocket.close(code=1008, reason="Too many connections")
+                return False
+                
+            await websocket.accept()
+            self.active_connections.add(websocket)
+            logger.info(f"WebSocket client connected. Total connections: {len(self.active_connections)}")
+            return True
+
+    async def disconnect(self, websocket: WebSocket):
+        async with self._lock:
+            self.active_connections.discard(websocket)
+            logger.info(f"WebSocket client disconnected. Total connections: {len(self.active_connections)}")
+
+    async def broadcast(self, message: dict):
+        """Send message to all connected clients."""
+        if self.active_connections:
+            message_json = json.dumps(message)
+            disconnected = set()
+            
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(message_json)
+                except Exception as e:
+                    logger.error(f"Error sending message to client: {e}")
+                    disconnected.add(connection)
+            
+            # Remove disconnected clients
+            self.active_connections -= disconnected
+
+manager = ConnectionManager()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +91,10 @@ async def lifespan(app: FastAPI):
     logger.info("Subscribing to Dapr pub/sub topics:")
     logger.info("  - low-stock-events")
     logger.info("  - critical-stock-events")
+    # Clear event history on startup to avoid showing duplicates from previous runs
+    event_history.events.clear()
+    notification_status.reset()
+    logger.info("Event history cleared on startup")
     yield
     # Shutdown
     logger.info("Notifications service shutting down")
@@ -47,9 +105,11 @@ app = FastAPI(
     title="Notifications Service",
     description="Handles stock alerts from Drasi queries via Dapr pub/sub",
     version="1.0.0",
-    lifespan=lifespan,
-    root_path="/notifications-service"
+    lifespan=lifespan
 )
+
+# Note: Mount static files after all other routes are defined
+# This will be done at the end of the file
 
 # Add CORS middleware
 app.add_middleware(
@@ -69,6 +129,30 @@ def format_timestamp(ts_ms: int) -> str:
     return datetime.fromtimestamp(ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S")
 
 
+async def store_and_broadcast_event(event: NotificationEvent):
+    """Store event in history and broadcast to WebSocket clients."""
+    # Add to history (remove oldest if at capacity)
+    if len(event_history.events) >= event_history.max_size:
+        event_history.events.pop(0)
+    event_history.events.append(event)
+    
+    # Broadcast to WebSocket clients
+    message = WebSocketMessage(
+        type="event",
+        data=event.dict()
+    )
+    await manager.broadcast(message.dict())
+
+
+async def broadcast_stats():
+    """Broadcast updated statistics to WebSocket clients."""
+    message = WebSocketMessage(
+        type="stats",
+        data=notification_status.get_stats().dict()
+    )
+    await manager.broadcast(message.dict())
+
+
 def process_low_stock_event(event_data: Dict[str, Any]) -> LowStockEvent:
     """Process and validate low stock event data."""
     try:
@@ -78,6 +162,11 @@ def process_low_stock_event(event_data: Dict[str, Any]) -> LowStockEvent:
         # Handle unpacked Drasi event format
         unpacked_event = UnpackedDrasiEvent(**drasi_data)
         
+        # Skip initial state events (ts_ms = 0 or very old events)
+        if unpacked_event.ts_ms == 0:
+            logger.info(f"Skipping initial state event for low stock")
+            return None
+            
         if unpacked_event.op == "i":  # Insert operation
             payload = unpacked_event.payload["after"]
         elif unpacked_event.op == "u":  # Update operation
@@ -107,6 +196,11 @@ def process_critical_stock_event(event_data: Dict[str, Any]) -> CriticalStockEve
         # Handle unpacked Drasi event format
         unpacked_event = UnpackedDrasiEvent(**drasi_data)
         
+        # Skip initial state events (ts_ms = 0 or very old events)
+        if unpacked_event.ts_ms == 0:
+            logger.info(f"Skipping initial state event for critical stock")
+            return None
+            
         if unpacked_event.op == "i":  # Insert operation
             payload = unpacked_event.payload["after"]
         elif unpacked_event.op == "u":  # Update operation
@@ -146,8 +240,167 @@ async def get_notification_status():
 async def reset_stats():
     """Reset notification statistics."""
     notification_status.reset()
+    event_history.events.clear()
     logger.info("Notification statistics reset")
+    await broadcast_stats()
     return {"message": "Statistics reset successfully"}
+
+
+@app.get("/history")
+async def get_event_history():
+    """Get recent notification events."""
+    events_list = []
+    for e in event_history.events:
+        try:
+            events_list.append(e.dict())
+        except Exception as ex:
+            logger.error(f"Error serializing event in history endpoint: {ex}")
+    
+    return {
+        "events": events_list,
+        "total": len(events_list)
+    }
+
+
+@app.get("/test-ui")
+async def test_ui():
+    """Test endpoint to check UI directory."""
+    ui_dir = os.path.join(os.path.dirname(__file__), "ui", "dist")
+    exists = os.path.exists(ui_dir)
+    files = []
+    if exists:
+        files = os.listdir(ui_dir)
+    return {
+        "ui_dir": ui_dir,
+        "exists": exists,
+        "files": files,
+        "cwd": os.getcwd(),
+        "file_location": __file__
+    }
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    logger.info("WebSocket connection attempt received")
+    
+    # Try to connect (may be rejected if too many connections)
+    if not await manager.connect(websocket):
+        return
+    
+    # Send initial data
+    try:
+        # Send current stats
+        stats_msg = WebSocketMessage(
+            type="stats",
+            data=notification_status.get_stats().dict()
+        )
+        logger.info(f"Sending initial stats: {stats_msg.dict()}")
+        await websocket.send_text(json.dumps(stats_msg.dict()))
+        
+        # Send recent events
+        try:
+            events_data = []
+            for e in event_history.events:
+                try:
+                    events_data.append(e.dict())
+                except Exception as ex:
+                    logger.error(f"Error serializing event {e.id}: {ex}")
+            
+            events_msg = WebSocketMessage(
+                type="history",
+                data={"events": events_data}
+            )
+            logger.info(f"Sending event history: {len(events_data)} events")
+            msg_dict = events_msg.dict()
+            msg_json = json.dumps(msg_dict)
+            await websocket.send_text(msg_json)
+        except Exception as e:
+            logger.error(f"Error sending event history: {e}", exc_info=True)
+        
+        # Keep connection alive
+        while True:
+            # Wait for messages (ping/pong to keep alive)
+            try:
+                data = await websocket.receive_text()
+                logger.debug(f"Received WebSocket message: {data}")
+                if data == "ping":
+                    # Send pong as JSON message
+                    pong_msg = json.dumps({"type": "pong"})
+                    await websocket.send_text(pong_msg)
+            except Exception as e:
+                logger.error(f"Error receiving WebSocket message: {e}")
+                break
+                
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected normally")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+    finally:
+        # Always disconnect when leaving the handler
+        manager.disconnect(websocket)
+
+
+@app.websocket("/notifications-service/ws")
+async def websocket_endpoint_with_prefix(websocket: WebSocket):
+    """WebSocket endpoint with prefix for ingress routing."""
+    logger.info("WebSocket connection attempt received (prefixed)")
+    
+    # Try to connect (may be rejected if too many connections)
+    if not await manager.connect(websocket):
+        return
+    
+    # Send initial data
+    try:
+        # Send current stats
+        stats_msg = WebSocketMessage(
+            type="stats",
+            data=notification_status.get_stats().dict()
+        )
+        logger.info(f"Sending initial stats: {stats_msg.dict()}")
+        await websocket.send_text(json.dumps(stats_msg.dict()))
+        
+        # Send recent events
+        try:
+            events_data = []
+            for e in event_history.events:
+                try:
+                    events_data.append(e.dict())
+                except Exception as ex:
+                    logger.error(f"Error serializing event {e.id}: {ex}")
+            
+            events_msg = WebSocketMessage(
+                type="history",
+                data={"events": events_data}
+            )
+            logger.info(f"Sending event history: {len(events_data)} events")
+            msg_dict = events_msg.dict()
+            msg_json = json.dumps(msg_dict)
+            await websocket.send_text(msg_json)
+        except Exception as e:
+            logger.error(f"Error sending event history: {e}", exc_info=True)
+        
+        # Keep connection alive
+        while True:
+            # Wait for messages (ping/pong to keep alive)
+            try:
+                data = await websocket.receive_text()
+                logger.debug(f"Received WebSocket message: {data}")
+                if data == "ping":
+                    # Send pong as JSON message
+                    pong_msg = json.dumps({"type": "pong"})
+                    await websocket.send_text(pong_msg)
+            except Exception as e:
+                logger.error(f"Error receiving WebSocket message: {e}")
+                break
+                
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected normally")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+    finally:
+        # Always disconnect when leaving the handler
+        manager.disconnect(websocket)
 
 
 @dapr_app.subscribe(pubsub="notifications-pubsub", topic="low-stock-events")
@@ -161,6 +414,12 @@ async def handle_low_stock_event(event_data: dict):
     try:
         # Process the event
         event = process_low_stock_event(event_data)
+        
+        # Skip if this was an initial state event
+        if event is None:
+            logger.info("Skipped initial state event for low stock")
+            # Return SUCCESS status so Dapr ACKs the message
+            return {"status": "SUCCESS"}
         
         # Log the event details
         logger.warning(f"LOW STOCK ALERT - Product: {event.productName} (ID: {event.productId})")
@@ -190,22 +449,38 @@ async def handle_low_stock_event(event_data: dict):
         print(f"Inventory Management System")
         print("="*70 + "\n")
         
+        # Store event for UI
+        notification_event = NotificationEvent(
+            id=str(uuid.uuid4()),
+            type=EventType.LOW_STOCK,
+            timestamp=datetime.utcnow(),
+            product_id=event.productId,
+            product_name=event.productName,
+            details={
+                "stockOnHand": event.stockOnHand,
+                "lowStockThreshold": event.lowStockThreshold
+            },
+            recipients=["purchasing@company.com"]
+        )
+        await store_and_broadcast_event(notification_event)
+        
         # Update statistics
         notification_status.low_stock_count += 1
         notification_status.last_low_stock_event = event.timestamp
+        await broadcast_stats()
         
         elapsed = (time.time() - start_time) * 1000
         logger.info(f"Low stock event processed successfully in {elapsed:.2f}ms")
         
-        return {"status": "success"}
+        # Return SUCCESS status so Dapr ACKs the message
+        return {"status": "SUCCESS"}
         
     except Exception as e:
         logger.error(f"Failed to process low stock event: {str(e)}")
         notification_status.error_count += 1
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process event: {str(e)}"
-        )
+        # Return DROP status to ACK the message but indicate it was not processed
+        # This prevents infinite retries of malformed messages
+        return {"status": "DROP"}
 
 
 @dapr_app.subscribe(pubsub="notifications-pubsub", topic="critical-stock-events")
@@ -219,6 +494,12 @@ async def handle_critical_stock_event(event_data: dict):
     try:
         # Process the event
         event = process_critical_stock_event(event_data)
+        
+        # Skip if this was an initial state event
+        if event is None:
+            logger.info("Skipped initial state event for critical stock")
+            # Return SUCCESS status so Dapr ACKs the message
+            return {"status": "SUCCESS"}
         
         # Log the critical event
         logger.critical(f"CRITICAL STOCK ALERT - Product: {event.productName} (ID: {event.productId})")
@@ -273,22 +554,38 @@ async def handle_critical_stock_event(event_data: dict):
         print(f"  ✓ Emergency restock request generated")
         print("="*70 + "\n")
         
+        # Store event for UI
+        notification_event = NotificationEvent(
+            id=str(uuid.uuid4()),
+            type=EventType.CRITICAL_STOCK,
+            timestamp=datetime.utcnow(),
+            product_id=event.productId,
+            product_name=event.productName,
+            details={
+                "productDescription": event.productDescription,
+                "stockLevel": 0
+            },
+            recipients=["sales@company.com", "fulfillment@company.com"]
+        )
+        await store_and_broadcast_event(notification_event)
+        
         # Update statistics
         notification_status.critical_stock_count += 1
         notification_status.last_critical_event = event.timestamp
+        await broadcast_stats()
         
         elapsed = (time.time() - start_time) * 1000
         logger.info(f"Critical stock event processed successfully in {elapsed:.2f}ms")
         
-        return {"status": "success"}
+        # Return SUCCESS status so Dapr ACKs the message
+        return {"status": "SUCCESS"}
         
     except Exception as e:
         logger.error(f"Failed to process critical stock event: {str(e)}")
         notification_status.error_count += 1
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process event: {str(e)}"
-        )
+        # Return DROP status to ACK the message but indicate it was not processed
+        # This prevents infinite retries of malformed messages
+        return {"status": "DROP"}
 
 
 @app.get("/")
@@ -301,13 +598,23 @@ async def root():
         "endpoints": {
             "health": "/health",
             "status": "/status",
-            "reset_stats": "/reset-stats"
+            "reset_stats": "/reset-stats",
+            "ui": "/ui/"
         },
         "subscriptions": {
             "low-stock-events": "Handles products reaching low stock threshold",
             "critical-stock-events": "Handles products with zero stock"
         }
     }
+
+
+# Mount static files for UI (must be done after all other routes)
+UI_DIR = os.path.join(os.path.dirname(__file__), "ui", "dist")
+if os.path.exists(UI_DIR):
+    app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
+    logger.info(f"Serving UI from {UI_DIR}")
+else:
+    logger.warning(f"UI directory not found at {UI_DIR}")
 
 
 if __name__ == "__main__":

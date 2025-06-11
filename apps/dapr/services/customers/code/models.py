@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, validator
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 
 
@@ -74,3 +74,8 @@ class CustomerResponse(BaseModel):
             loyaltyTier=item.loyaltyTier,
             email=item.email
         )
+
+
+class CustomerListResponse(BaseModel):
+    items: List[CustomerResponse]
+    total: int

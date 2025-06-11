@@ -1,7 +1,8 @@
 import json
 import logging
 import os
-from typing import Optional, Any
+import base64
+from typing import Optional, Any, List, Dict
 from dapr.clients import DaprClient
 
 logger = logging.getLogger(__name__)
@@ -58,4 +59,61 @@ class DaprStateStore:
             
         except Exception as e:
             logger.error(f"Error deleting item with key '{key}': {str(e)}")
+            raise
+
+    async def query_items(self, query: Dict[str, Any]) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        """
+        Query items from the state store using Dapr state query API.
+        
+        Args:
+            query: Query dictionary with filter, sort, and page options
+            
+        Returns:
+            Tuple of (results list, pagination token)
+        """
+        try:
+            query_json = json.dumps(query)
+            logger.debug(f"Executing state query with: {query_json}")
+            response = self.client.query_state(
+                store_name=self.store_name,
+                query=query_json
+            )
+            
+            results = []
+            for item in response.results:
+                try:
+                    # The value might already be a string (JSON), not bytes
+                    if hasattr(item.value, 'decode'):
+                        # It's bytes, decode it
+                        value_str = item.value.decode('UTF-8')
+                    else:
+                        # It's already a string
+                        value_str = item.value
+                    
+                    # Parse the JSON string
+                    value = json.loads(value_str)
+                    
+                    # If the value is a string, it might be base64 encoded JSON
+                    if isinstance(value, str):
+                        try:
+                            # Try base64 decoding
+                            decoded_bytes = base64.b64decode(value)
+                            decoded_str = decoded_bytes.decode('utf-8')
+                            value = json.loads(decoded_str)
+                        except Exception:
+                            # Keep the original string value if base64 decode fails
+                            pass
+                    
+                    results.append({
+                        'key': item.key,
+                        'value': value
+                    })
+                except Exception as e:
+                    logger.error(f"Failed to parse item with key {item.key}: {e}")
+            
+            logger.debug(f"Query completed - returned {len(results)} items")
+            return results, response.token
+            
+        except Exception as e:
+            logger.error(f"Error querying state store: {str(e)}")
             raise

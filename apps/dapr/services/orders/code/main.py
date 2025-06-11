@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from models import Order, OrderCreateRequest, OrderStatusUpdateRequest, OrderResponse, OrderStatus, OrderItem
+from models import Order, OrderCreateRequest, OrderStatusUpdateRequest, OrderResponse, OrderListResponse, OrderStatus, OrderItem
 from dapr_client import DaprStateStore
 
 # Configure logging
@@ -70,6 +70,46 @@ def get_state_store() -> DaprStateStore:
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "orders"}
+
+
+@app.get("/orders", response_model=OrderListResponse)
+async def list_orders(
+    store: DaprStateStore = Depends(get_state_store)
+):
+    """Get all orders."""
+    start_time = time.time()
+    
+    try:
+        # Simple query with empty filter to get all items
+        query = {
+            "filter": {}
+        }
+        
+        # Execute the query
+        results, _ = await store.query_items(query)
+        
+        # Convert results to OrderResponse objects
+        items = []
+        for result in results:
+            try:
+                order = Order.from_db_dict(result['value'])
+                items.append(OrderResponse.from_order(order))
+            except Exception as e:
+                logger.warning(f"Failed to parse item with key {result['key']}: {str(e)}")
+                continue
+        
+        elapsed = (time.time() - start_time) * 1000
+        logger.info(f"Retrieved {len(items)} orders in {elapsed:.2f}ms")
+        
+        return OrderListResponse(items=items, total=len(items))
+        
+    except Exception as e:
+        elapsed = (time.time() - start_time) * 1000
+        logger.error(f"Failed to list orders after {elapsed:.2f}ms: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list orders: {str(e)}"
+        )
 
 
 @app.post("/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)

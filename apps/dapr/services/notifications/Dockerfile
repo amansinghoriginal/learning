@@ -1,4 +1,19 @@
-# Build stage
+# Build stage for UI
+FROM node:20-alpine as ui-builder
+
+WORKDIR /app/ui
+
+# Copy UI package files
+COPY ui/package*.json ./
+RUN npm install
+
+# Copy UI source code
+COPY ui/ .
+
+# Build the UI
+RUN npm run build
+
+# Build stage for Python
 FROM python:3.13-slim as builder
 
 WORKDIR /app
@@ -20,7 +35,11 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Copy Python code
 COPY code/ .
+
+# Copy built UI from ui-builder
+COPY --from=ui-builder /app/ui/dist ./ui/dist
 
 EXPOSE 8000
 

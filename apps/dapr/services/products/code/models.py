@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class ProductItem(BaseModel):
@@ -61,3 +61,8 @@ class ProductResponse(BaseModel):
             lowStockThreshold=item.lowStockThreshold,
             isLowStock=item.stockOnHand <= item.lowStockThreshold
         )
+
+
+class ProductListResponse(BaseModel):
+    items: List[ProductResponse]
+    total: int
