@@ -37,6 +37,12 @@ This folder contains scripts and guides for demonstrating Drasi's capabilities w
   - Prompts for product ID and number of reviews
   - Demonstrates dynamic updates
 
+- **`demo-dashboard-service.sh`** - Interactive demo of dashboard service with stock scenarios
+  - Creates product with specific stock levels
+  - Creates two orders demonstrating stock constraints
+  - Uses Y/N questions for user flow
+  - Shows stock at 75% and 50% of order quantities
+
 #### Quick Demo
 - **`quick-demo.sh`** - 5-minute demo hitting all three reactions
 
