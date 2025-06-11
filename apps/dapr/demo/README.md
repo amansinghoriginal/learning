@@ -31,6 +31,12 @@ This folder contains scripts and guides for demonstrating Drasi's capabilities w
 #### Monitoring
 - **`monitor-notifications.sh`** - Tails notifications service logs
 
+#### Interactive Demos
+- **`demo-catalogue-service.sh`** - Interactive demo of catalogue service with Drasi
+  - Shows real-time synchronization
+  - Prompts for product ID and number of reviews
+  - Demonstrates dynamic updates
+
 #### Quick Demo
 - **`quick-demo.sh`** - 5-minute demo hitting all three reactions
 
