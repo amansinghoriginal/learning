@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(kubectl get pods:*)",
+      "Bash(kubectl exec:*)",
+      "Bash(make:*)",
+      "Bash(curl:*)",
+      "Bash(./test-apis.sh:*)",
+      "Bash(touch:*)",
+      "Bash(chmod:*)",
+      "Bash(drasi list:*)",
+      "Bash(drasi describe:*)",
+      "Bash(cp:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl rollout restart:*)",
+      "Bash(kubectl rollout status:*)",
+      "Bash(kubectl rollout restart:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl rollout status:*)"
+    ],
+    "deny": []
+  }
+}
