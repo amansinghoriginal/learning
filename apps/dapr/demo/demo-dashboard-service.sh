@@ -97,7 +97,7 @@ echo
 # First order will be for 40 units, product will have 30 units (75% of order)
 # Second order will be for 20 units, product will then have 10 units (50% of second order)
 ORDER_1_QTY=40
-ORDER_2_QTY=20
+ORDER_2_QTY=60
 INITIAL_STOCK=30  # 75% of first order
 LOW_THRESHOLD=25  # Set threshold between final stock (10) and initial stock (30)
 
@@ -134,14 +134,14 @@ EOF
     fi
     
     echo
-    echo -e "${GREEN}Creating Customer 2 (SILVER tier)...${NC}"
+    echo -e "${GREEN}Creating Customer 2 (GOLD tier)...${NC}"
     
     CUSTOMER_2_JSON=$(cat <<EOF
 {
   "customerId": ${CUSTOMER_ID_2},
   "customerName": "Demo Customer ${CUSTOMER_ID_2}",
   "email": "customer${CUSTOMER_ID_2}@demo.com",
-  "loyaltyTier": "SILVER"
+  "loyaltyTier": "GOLD"
 }
 EOF
 )
@@ -264,7 +264,7 @@ echo
 print_header "Step 4: Create Second Order"
 
 echo -e "${CYAN}Second order details:${NC}"
-echo -e "${CYAN}• Customer: ${CUSTOMER_ID_2} (SILVER)${NC}"
+echo -e "${CYAN}• Customer: ${CUSTOMER_ID_2} (GOLD)${NC}"
 echo -e "${CYAN}• Product: ${PRODUCT_ID}${NC}"
 echo -e "${CYAN}• Quantity: ${ORDER_2_QTY} units${NC}"
 echo -e "${CYAN}• Stock after order 1: Will be at 50% of this order${NC}"
@@ -317,12 +317,12 @@ print_header "Demo Complete!"
 echo -e "${GREEN}${BOLD}Summary of created entities:${NC}"
 echo -e "${BLUE}• Product ${PRODUCT_ID}: Initial stock ${INITIAL_STOCK}, threshold ${LOW_THRESHOLD}${NC}"
 echo -e "${BLUE}• Customer ${CUSTOMER_ID_1}: GOLD tier${NC}"
-echo -e "${BLUE}• Customer ${CUSTOMER_ID_2}: SILVER tier${NC}"
+echo -e "${BLUE}• Customer ${CUSTOMER_ID_2}: GOLD tier${NC}"
 if [ ! -z "$ORDER_1_ID" ]; then
     echo -e "${BLUE}• Order ${ORDER_1_ID}: ${ORDER_1_QTY} units (exceeds available stock)${NC}"
 fi
 if [ ! -z "$ORDER_2_ID" ]; then
-    echo -e "${BLUE}• Order ${ORDER_2_ID}: ${ORDER_2_QTY} units${NC}"
+    echo -e "${BLUE}• Order ${ORDER_2_ID}: ${ORDER_2_QTY} units (exceeds available stock)${NC}"
 fi
 
 echo
@@ -335,5 +335,5 @@ echo
 echo -e "${CYAN}${BOLD}Stock Scenario Results:${NC}"
 echo -e "${CYAN}• Product started with ${INITIAL_STOCK} units (above threshold)${NC}"
 echo -e "${CYAN}• First order requests ${ORDER_1_QTY} units (stock only 75% of order)${NC}"
-echo -e "${CYAN}• Second order requests ${ORDER_2_QTY} units (stock would be 50% of order)${NC}"
+echo -e "${CYAN}• Second order requests ${ORDER_2_QTY} units (stock only 50% of order)${NC}"
 echo
