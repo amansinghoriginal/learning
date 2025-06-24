@@ -1,9 +1,8 @@
 {
   "name": "Building Comfort",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "image": "ghcr.io/drasi-project/drasi-devcontainer:latest",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/building-comfort",
-  "onCreateCommand": "sed -i 's/\r$//' ../../.devcontainer/building-comfort/post-create.sh && sed -i 's/\r$//' ../../.devcontainer/building-comfort/on-create.sh && bash ../../.devcontainer/building-comfort/on-create.sh",
-  "postCreateCommand": "bash ../../.devcontainer/building-comfort/post-create.sh",
+  "postCreateCommand": "bash ../../.devcontainer/building-comfort/post-create-optimized.sh",
   "runArgs": [
     "--privileged",
     "--init"
@@ -16,17 +15,6 @@
       ]
     }
   },
-  "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
-  },
-  "containerEnv": {
-    "LANG": "en_US.UTF-8",
-    "LANGUAGE": "en_US:en",
-    "LC_ALL": "en_US.UTF-8"
-  },
-  "remoteEnv": {
-    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
-  },
   "forwardPorts": [80],
   "portsAttributes": {
     "80": {
@@ -34,7 +22,6 @@
       "onAutoForward": "notify"
     }
   },
-  
   "hostRequirements": {
     "cpus": 4,
     "memory": "8gb",
