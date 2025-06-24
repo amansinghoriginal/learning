@@ -28,17 +28,20 @@ RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --d
 RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 # Install crane for downloading container images without Docker daemon
-RUN ARCH=$(dpkg --print-architecture) && \
-    curl -L https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_${ARCH}.tar.gz | \
+RUN wget -qO- https://api.github.com/repos/google/go-containerregistry/releases/latest | \
+    grep "browser_download_url.*Linux_$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x86_64/').tar.gz" | \
+    cut -d '"' -f 4 | \
+    xargs curl -L | \
     tar xz -C /usr/local/bin crane
 
 # Install Drasi CLI
 RUN curl -fsSL https://raw.githubusercontent.com/drasi-project/drasi-platform/main/cli/installers/install-drasi-cli.sh | bash
 
-# Pre-download ALL Drasi images
+# Pre-download Drasi images for the current build platform
+ARG TARGETPLATFORM
 ENV DRASI_VERSION=0.3.4
 RUN mkdir -p /opt/drasi-images && \
-    echo "Pre-downloading Drasi images..." && \
+    echo "Pre-downloading Drasi images for platform ${TARGETPLATFORM}..." && \
     images="api kubernetes-provider \
     query-container-query-host query-container-publish-api query-container-view-svc \
     source-change-router source-change-dispatcher source-query-api \
@@ -52,14 +55,14 @@ RUN mkdir -p /opt/drasi-images && \
     reaction-gremlin reaction-result reaction-storage-queue \
     reaction-sync-dapr-statestore reaction-post-dapr-pubsub reaction-storedproc" && \
     for img in $images; do \
-        echo "Downloading ghcr.io/drasi-project/$img:$DRASI_VERSION..." && \
-        crane pull ghcr.io/drasi-project/$img:$DRASI_VERSION /opt/drasi-images/$img.tar || echo "Failed to download $img"; \
+        echo "Downloading ghcr.io/drasi-project/$img:$DRASI_VERSION for ${TARGETPLATFORM}..." && \
+        crane pull --platform=${TARGETPLATFORM} ghcr.io/drasi-project/$img:$DRASI_VERSION /opt/drasi-images/$img.tar || echo "Failed to download $img"; \
     done && \
     echo "Downloaded $(ls /opt/drasi-images/*.tar 2>/dev/null | wc -l) Drasi images"
 
-# Pre-download Dapr images
+# Pre-download Dapr images for the current build platform
 RUN mkdir -p /opt/dapr-images && \
-    echo "Pre-downloading Dapr images..." && \
+    echo "Pre-downloading Dapr images for platform ${TARGETPLATFORM}..." && \
     images="daprio/dapr:1.10.0 \
     daprio/dashboard:0.12.0 \
     daprio/sentry:1.10.0 \
@@ -67,15 +70,15 @@ RUN mkdir -p /opt/dapr-images && \
     daprio/dapr-operator:1.10.0 \
     daprio/daprd:1.9.0" && \
     for img in $images; do \
-        echo "Downloading $img..." && \
-        crane pull $img /opt/dapr-images/$(echo $img | tr '/:' '_').tar || echo "Failed to download $img"; \
+        echo "Downloading $img for ${TARGETPLATFORM}..." && \
+        crane pull --platform=${TARGETPLATFORM} $img /opt/dapr-images/$(echo $img | tr '/:' '_').tar || echo "Failed to download $img"; \
     done && \
     echo "Downloaded $(ls /opt/dapr-images/*.tar 2>/dev/null | wc -l) Dapr images"
 
-# Pre-download k3s image
+# Pre-download k3s image for the current build platform
 RUN mkdir -p /opt/k3s-images && \
-    echo "Pre-downloading k3s image..." && \
-    crane pull rancher/k3s:v1.31.4-k3s1 /opt/k3s-images/k3s.tar || echo "Failed to download k3s"
+    echo "Pre-downloading k3s image for platform ${TARGETPLATFORM}..." && \
+    crane pull --platform=${TARGETPLATFORM} rancher/k3s:v1.31.4-k3s1 /opt/k3s-images/k3s.tar || echo "Failed to download k3s"
 
 # Create optimized initialization script
 RUN echo '#!/bin/bash\n\

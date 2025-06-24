@@ -1,8 +1,8 @@
 {
   "name": "Building Comfort",
-  "image": "ghcr.io/drasi-project/drasi-devcontainer:latest",
+  "image": "ghcr.io/drasi-project/learning/drasi-devcontainer:latest",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/building-comfort",
-  "postCreateCommand": "bash ../../.devcontainer/building-comfort/post-create-optimized.sh",
+  "postCreateCommand": "bash ../../.devcontainer/building-comfort/post-create.sh",
   "runArgs": [
     "--privileged",
     "--init"
