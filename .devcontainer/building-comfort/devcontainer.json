@@ -2,7 +2,7 @@
   "name": "Building Comfort",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/building-comfort",
-  "onCreateCommand": "sed -i 's/\r$//' ../../.devcontainer/building-comfort/post-create.sh && sed -i 's/\r$//' ../../.devcontainer/building-comfort/on-create.sh && bash ../../.devcontainer/building-comfort/on-create.sh",
+  "onCreateCommand": "bash ../../.devcontainer/building-comfort/on-create.sh",
   "postCreateCommand": "bash ../../.devcontainer/building-comfort/post-create.sh",
   "runArgs": [
     "--privileged",

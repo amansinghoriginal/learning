@@ -2,7 +2,7 @@
   "name": "Curbside Pickup",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/curbside-pickup",
-  "onCreateCommand": "sed -i 's/\r$//' ../../.devcontainer/curbside-pickup/post-create.sh && sed -i 's/\r$//' ../../.devcontainer/curbside-pickup/on-create.sh && bash ../../.devcontainer/curbside-pickup/on-create.sh",
+  "onCreateCommand": "bash ../../.devcontainer/curbside-pickup/on-create.sh",
   "postCreateCommand": "bash ../../.devcontainer/curbside-pickup/post-create.sh",
   "runArgs": [
     "--privileged",
