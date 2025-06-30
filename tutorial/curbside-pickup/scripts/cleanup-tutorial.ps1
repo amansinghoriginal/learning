@@ -129,7 +129,12 @@ if (Test-CommandExists "k3d") {
     # Check for k3d clusters
     try {
         $clusters = k3d cluster list -o json 2>$null | ConvertFrom-Json
-        $clusterNames = $clusters | ForEach-Object { $_.name }
+        if ($clusters) {
+            $clusterNames = @($clusters | ForEach-Object { $_.name })
+        }
+        else {
+            $clusterNames = @()
+        }
     }
     catch {
         $clusterNames = @()
