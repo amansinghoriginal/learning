@@ -510,6 +510,23 @@ function Initialize-Drasi {
     
     Write-Info "Initializing Drasi..."
     
+    # Configure Drasi to use kubectl context
+    Write-Info "Configuring Drasi to use kubectl context..."
+    try {
+        drasi env kube 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "Drasi configured to use kubectl context"
+        }
+        else {
+            Write-Warning "Failed to configure Drasi environment with 'drasi env kube'"
+            Write-Info "Continuing with initialization anyway..."
+        }
+    }
+    catch {
+        Write-Warning "Failed to configure Drasi environment: $_"
+        Write-Info "Continuing with initialization anyway..."
+    }
+    
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         Write-Info "Initialization attempt $attempt of $MaxAttempts..."
         

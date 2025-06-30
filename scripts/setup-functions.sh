@@ -263,6 +263,15 @@ check_drasi_cli() {
 init_drasi() {
     print_info "Initializing Drasi on the cluster..."
     
+    # Configure Drasi to use kubectl context
+    print_info "Configuring Drasi to use kubectl context..."
+    if drasi env kube 2>/dev/null; then
+        print_success "Drasi configured to use kubectl context"
+    else
+        print_warning "Failed to configure Drasi environment with 'drasi env kube'"
+        print_info "Continuing with initialization anyway..."
+    fi
+    
     MAX_ATTEMPTS=3
     ATTEMPT=1
     

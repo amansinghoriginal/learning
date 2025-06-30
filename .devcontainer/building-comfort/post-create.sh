@@ -119,6 +119,16 @@ echo "Waiting for all deployments to be ready..."
 kubectl wait --for=condition=available deployment --all --timeout=300s
 
 echo "Initializing Drasi..."
+
+# Configure Drasi to use kubectl context
+echo "Configuring Drasi to use kubectl context..."
+if drasi env kube 2>/dev/null; then
+    echo "Drasi configured to use kubectl context"
+else
+    echo "WARNING: Failed to configure Drasi environment with 'drasi env kube'"
+    echo "Continuing with initialization anyway..."
+fi
+
 MAX_ATTEMPTS=3
 ATTEMPT=1
 DRASI_INITIALIZED=false
