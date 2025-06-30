@@ -63,7 +63,7 @@ if [ "$DEPLOYMENT_MODE" = "k3d" ]; then
             print_info "No k3d clusters found."
             if ask_user "Would you like to create a new k3d cluster?"; then
                 print_info "Creating k3d cluster 'drasi-tutorial'..."
-                k3d cluster create drasi-tutorial --port "80:80@loadbalancer"
+                k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
                 print_success "k3d cluster created successfully"
                 K3D_CLUSTER_CREATED="true"
                 SELECTED_CLUSTER="drasi-tutorial"
@@ -119,7 +119,7 @@ if [ "$DEPLOYMENT_MODE" = "k3d" ]; then
                 # Create cluster
                 if ask_user "Would you like to create a new k3d cluster?"; then
                     print_info "Creating k3d cluster 'drasi-tutorial'..."
-                    k3d cluster create drasi-tutorial --port "80:80@loadbalancer"
+                    k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
                     print_success "k3d cluster created successfully"
                     K3D_CLUSTER_CREATED="true"
                     SELECTED_CLUSTER="drasi-tutorial"
@@ -303,11 +303,11 @@ echo ""
 
 if [ "$DEPLOY_INGRESS" = "true" ]; then
     echo "Applications are available at:"
-    echo "   - Demo (All Apps): http://localhost/"
-    echo "   - Physical Operations: http://localhost/physical-ops"
-    echo "   - Retail Operations: http://localhost/retail-ops"
-    echo "   - Delivery Dashboard: http://localhost/delivery-dashboard"
-    echo "   - Delay Dashboard: http://localhost/delay-dashboard"
+    echo "   - Demo (All Apps): http://localhost:8123/"
+    echo "   - Physical Operations: http://localhost:8123/physical-ops"
+    echo "   - Retail Operations: http://localhost:8123/retail-ops"
+    echo "   - Delivery Dashboard: http://localhost:8123/delivery-dashboard"
+    echo "   - Delay Dashboard: http://localhost:8123/delay-dashboard"
 else
     echo "Use kubectl port-forward to access individual services:"
     echo "   kubectl port-forward svc/demo 8080:80"

@@ -63,7 +63,7 @@ if ($DeploymentMode -eq "k3d") {
             Write-Info "No k3d clusters found."
             if (Read-UserChoice "Would you like to create a new k3d cluster?") {
                 Write-Info "Creating k3d cluster 'drasi-tutorial'..."
-                k3d cluster create drasi-tutorial --port "80:80@loadbalancer"
+                k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
                 Write-Success "k3d cluster created successfully"
                 $K3dClusterCreated = $true
                 $SelectedCluster = "drasi-tutorial"
@@ -199,11 +199,11 @@ Write-Host ""
 if ($DeployIngress -eq "true") {
     Write-Host "🎉 Setup Complete! Access your applications at:" -ForegroundColor Green
     Write-Host ""
-    Write-Host "  Demo Portal:        http://localhost/" -ForegroundColor Cyan
-    Write-Host "  Retail Operations:  http://localhost/retail-ops" -ForegroundColor Cyan
-    Write-Host "  Physical Operations: http://localhost/physical-ops" -ForegroundColor Cyan
-    Write-Host "  Delivery Dashboard: http://localhost/delivery-dashboard" -ForegroundColor Cyan
-    Write-Host "  Delay Dashboard:    http://localhost/delay-dashboard" -ForegroundColor Cyan
+    Write-Host "  Demo Portal:        http://localhost:8123/" -ForegroundColor Cyan
+    Write-Host "  Retail Operations:  http://localhost:8123/retail-ops" -ForegroundColor Cyan
+    Write-Host "  Physical Operations: http://localhost:8123/physical-ops" -ForegroundColor Cyan
+    Write-Host "  Delivery Dashboard: http://localhost:8123/delivery-dashboard" -ForegroundColor Cyan
+    Write-Host "  Delay Dashboard:    http://localhost:8123/delay-dashboard" -ForegroundColor Cyan
 }
 else {
     Write-Host "🎉 Setup Complete! To access your applications, use port-forwarding:" -ForegroundColor Green

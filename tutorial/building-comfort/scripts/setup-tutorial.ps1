@@ -63,7 +63,7 @@ if ($DeploymentMode -eq "k3d") {
             Write-Info "No k3d clusters found."
             if (Read-UserChoice "Would you like to create a new k3d cluster?") {
                 Write-Info "Creating k3d cluster 'drasi-tutorial'..."
-                k3d cluster create drasi-tutorial --port "80:80@loadbalancer"
+                k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
                 Write-Success "k3d cluster created successfully"
                 $K3dClusterCreated = $true
                 $SelectedCluster = "drasi-tutorial"
@@ -193,9 +193,9 @@ Write-Host ""
 if ($DeployIngress -eq "true") {
     Write-Host "🎉 Setup Complete! Access your applications at:" -ForegroundColor Green
     Write-Host ""
-    Write-Host "  Demo Portal:    http://localhost/" -ForegroundColor Cyan
-    Write-Host "  Control Panel:  http://localhost/control-panel" -ForegroundColor Cyan
-    Write-Host "  Dashboard:      http://localhost/dashboard" -ForegroundColor Cyan
+    Write-Host "  Demo Portal:    http://localhost:8123/" -ForegroundColor Cyan
+    Write-Host "  Control Panel:  http://localhost:8123/control-panel" -ForegroundColor Cyan
+    Write-Host "  Dashboard:      http://localhost:8123/dashboard" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  The Demo Portal shows both the dashboard and control panel in a single view." -ForegroundColor Gray
 }

@@ -49,7 +49,7 @@ fi
 echo "Creating K3d cluster..."
 # Delete existing cluster if it exists
 k3d cluster delete drasi-tutorial 2>/dev/null || true
-k3d cluster create drasi-tutorial --port "80:80@loadbalancer"
+k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
 
 echo "Waiting for cluster to be ready..."
 kubectl wait --for=condition=ready node --all --timeout=60s

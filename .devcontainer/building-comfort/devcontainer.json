@@ -27,11 +27,12 @@
   "remoteEnv": {
     "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
   },
-  "forwardPorts": [80],
+  "forwardPorts": ["80:8123"],
   "portsAttributes": {
     "80": {
       "label": "Building Comfort Apps",
-      "onAutoForward": "notify"
+      "onAutoForward": "notify",
+      "protocol": "http"
     }
   },
   

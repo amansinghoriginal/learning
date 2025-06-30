@@ -62,7 +62,7 @@ if [ "$DEPLOYMENT_MODE" = "k3d" ]; then
             print_info "No k3d clusters found."
             if ask_user "Would you like to create a new k3d cluster?"; then
                 print_info "Creating k3d cluster 'drasi-tutorial'..."
-                k3d cluster create drasi-tutorial --port "80:80@loadbalancer"
+                k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
                 print_success "k3d cluster created successfully"
                 K3D_CLUSTER_CREATED="true"
                 SELECTED_CLUSTER="drasi-tutorial"
@@ -118,7 +118,7 @@ if [ "$DEPLOYMENT_MODE" = "k3d" ]; then
                 # Create cluster
                 if ask_user "Would you like to create a new k3d cluster?"; then
                     print_info "Creating k3d cluster 'drasi-tutorial'..."
-                    k3d cluster create drasi-tutorial --port "80:80@loadbalancer"
+                    k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
                     print_success "k3d cluster created successfully"
                     K3D_CLUSTER_CREATED="true"
                     SELECTED_CLUSTER="drasi-tutorial"
@@ -281,13 +281,13 @@ echo ""
 
 if [ "$DEPLOY_INGRESS" = "true" ]; then
     echo "Applications are available at:"
-    echo "   - Demo: http://localhost/"
-    echo "   - Control Panel: http://localhost/control-panel"
-    echo "   - Dashboard: http://localhost/dashboard"
+    echo "   - Demo: http://localhost:8123/"
+    echo "   - Control Panel: http://localhost:8123/control-panel"
+    echo "   - Dashboard: http://localhost:8123/dashboard"
     echo ""
     echo "API Documentation:"
-    echo "   - Swagger UI: http://localhost/control-panel/docs"
-    echo "   - ReDoc: http://localhost/control-panel/redoc"
+    echo "   - Swagger UI: http://localhost:8123/control-panel/docs"
+    echo "   - ReDoc: http://localhost:8123/control-panel/redoc"
 else
     echo "Use kubectl port-forward to access individual services:"
     echo "   kubectl port-forward svc/demo 8080:80"
