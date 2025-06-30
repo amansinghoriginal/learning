@@ -59,43 +59,66 @@ if [ "$DEPLOYMENT_MODE" = "k3d" ]; then
         print_info "Checking for existing k3d clusters..."
         CLUSTERS=$(k3d cluster list -o json 2>/dev/null | jq -r '.[].name' 2>/dev/null || echo "")
         
-        if [ -z "$CLUSTERS" ]; then
-            print_info "No k3d clusters found."
-            if ask_user "Would you like to create a new k3d cluster?"; then
-                print_info "Creating k3d cluster 'drasi-tutorial'..."
-                k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
-                print_success "k3d cluster created successfully"
-                K3D_CLUSTER_CREATED="true"
-                SELECTED_CLUSTER="drasi-tutorial"
-            else
-                print_error "k3d cluster is required for this mode"
-                exit 1
-            fi
-        else
-            # List available clusters
-            print_info "Available k3d clusters:"
-            echo "$CLUSTERS" | nl -nrz -w2
+        # Check specifically for drasi-tutorial cluster
+        if echo "$CLUSTERS" | grep -q "^drasi-tutorial$"; then
+            # Found drasi-tutorial cluster - ask what to do
+            print_info "Found existing 'drasi-tutorial' k3d cluster"
+            echo ""
+            echo -e "${YELLOW}What would you like to do?${NC}"
+            echo "  1. Delete and recreate cluster (default)"
+            echo "  2. Use existing cluster (may have conflicts)"
+            echo "  3. Stop script execution"
+            echo ""
             
-            # Select cluster
-            CLUSTER_COUNT=$(echo "$CLUSTERS" | wc -l)
-            if [ "$CLUSTER_COUNT" -eq 1 ]; then
-                SELECTED_CLUSTER="$CLUSTERS"
-                print_info "Using cluster: $SELECTED_CLUSTER"
-            else
-                # Pick first as default
-                DEFAULT_CLUSTER=$(echo "$CLUSTERS" | head -n1)
-                read -p "Select cluster number (default: 1 - $DEFAULT_CLUSTER): " SELECTION
-                
-                if [ -z "$SELECTION" ]; then
-                    SELECTED_CLUSTER="$DEFAULT_CLUSTER"
-                else
-                    SELECTED_CLUSTER=$(echo "$CLUSTERS" | sed -n "${SELECTION}p")
-                    if [ -z "$SELECTED_CLUSTER" ]; then
-                        print_warning "Invalid selection. Using default: $DEFAULT_CLUSTER"
-                        SELECTED_CLUSTER="$DEFAULT_CLUSTER"
-                    fi
-                fi
+            read -p "Enter your choice [1-3] (default: 1): " CHOICE
+            if [ -z "$CHOICE" ]; then
+                CHOICE="1"
             fi
+            
+            case $CHOICE in
+                1)
+                    # Delete and recreate
+                    print_info "Deleting existing 'drasi-tutorial' cluster..."
+                    k3d cluster delete drasi-tutorial
+                    print_success "Cluster deleted"
+                    
+                    print_info "Creating new k3d cluster 'drasi-tutorial'..."
+                    k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
+                    print_success "k3d cluster created successfully"
+                    K3D_CLUSTER_CREATED="true"
+                    SELECTED_CLUSTER="drasi-tutorial"
+                    ;;
+                2)
+                    # Use existing cluster
+                    print_warning "Using existing cluster may cause conflicts with existing resources"
+                    SELECTED_CLUSTER="drasi-tutorial"
+                    print_info "Using existing cluster: drasi-tutorial"
+                    ;;
+                3)
+                    print_info "Setup cancelled by user"
+                    exit 0
+                    ;;
+                *)
+                    print_warning "Invalid choice. Defaulting to option 1 (delete and recreate)"
+                    # Delete and recreate
+                    print_info "Deleting existing 'drasi-tutorial' cluster..."
+                    k3d cluster delete drasi-tutorial
+                    print_success "Cluster deleted"
+                    
+                    print_info "Creating new k3d cluster 'drasi-tutorial'..."
+                    k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
+                    print_success "k3d cluster created successfully"
+                    K3D_CLUSTER_CREATED="true"
+                    SELECTED_CLUSTER="drasi-tutorial"
+                    ;;
+            esac
+        else
+            # No drasi-tutorial cluster found - just create it
+            print_info "Creating k3d cluster 'drasi-tutorial'..."
+            k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
+            print_success "k3d cluster created successfully"
+            K3D_CLUSTER_CREATED="true"
+            SELECTED_CLUSTER="drasi-tutorial"
         fi
     else
         print_warning "k3d is not installed"

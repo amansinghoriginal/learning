@@ -68,62 +68,85 @@ if ($DeploymentMode -eq "k3d") {
             $clusterNames = @()
         }
         
-        if ($clusterNames.Count -eq 0) {
-            Write-Info "No k3d clusters found."
-            if (Read-UserChoice "Would you like to create a new k3d cluster?") {
-                Write-Info "Creating k3d cluster 'drasi-tutorial'..."
-                k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
-                Write-Success "k3d cluster created successfully"
-                $K3dClusterCreated = $true
-                $SelectedCluster = "drasi-tutorial"
+        # Check specifically for drasi-tutorial cluster
+        if ($clusterNames -contains "drasi-tutorial") {
+            # Found drasi-tutorial cluster - ask what to do
+            Write-Info "Found existing 'drasi-tutorial' k3d cluster"
+            Write-Host ""
+            Write-Host "What would you like to do?" -ForegroundColor Yellow
+            Write-Host "  1. Delete and recreate cluster (default)" -ForegroundColor White
+            Write-Host "  2. Use existing cluster (may have conflicts)" -ForegroundColor White
+            Write-Host "  3. Stop script execution" -ForegroundColor White
+            Write-Host ""
+            
+            $choice = Read-Host "Enter your choice [1-3] (default: 1)"
+            if ([string]::IsNullOrWhiteSpace($choice)) {
+                $choice = "1"
             }
-            else {
-                Write-Error "k3d cluster is required for this mode"
-                exit 1
+            
+            switch ($choice) {
+                "1" {
+                    # Delete and recreate
+                    Write-Info "Deleting existing 'drasi-tutorial' cluster..."
+                    k3d cluster delete drasi-tutorial
+                    Write-Success "Cluster deleted"
+                    
+                    Write-Info "Creating new k3d cluster 'drasi-tutorial'..."
+                    k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
+                    Write-Success "k3d cluster created successfully"
+                    $K3dClusterCreated = $true
+                    $SelectedCluster = "drasi-tutorial"
+                }
+                "2" {
+                    # Use existing cluster
+                    Write-Warning "Using existing cluster may cause conflicts with existing resources"
+                    $SelectedCluster = "drasi-tutorial"
+                    Write-Info "Using existing cluster: drasi-tutorial"
+                }
+                "3" {
+                    Write-Info "Setup cancelled by user"
+                    exit 0
+                }
+                default {
+                    Write-Warning "Invalid choice. Defaulting to option 1 (delete and recreate)"
+                    # Delete and recreate
+                    Write-Info "Deleting existing 'drasi-tutorial' cluster..."
+                    k3d cluster delete drasi-tutorial
+                    Write-Success "Cluster deleted"
+                    
+                    Write-Info "Creating new k3d cluster 'drasi-tutorial'..."
+                    k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
+                    Write-Success "k3d cluster created successfully"
+                    $K3dClusterCreated = $true
+                    $SelectedCluster = "drasi-tutorial"
+                }
             }
         }
         else {
-            # List available clusters
-            Write-Info "Available k3d clusters:"
-            for ($i = 0; $i -lt $clusterNames.Count; $i++) {
-                Write-Host "  $($i + 1). $($clusterNames[$i])" -ForegroundColor White
-            }
-            
-            # Select cluster
-            if ($clusterNames.Count -eq 1) {
-                $SelectedCluster = $clusterNames[0]
-                Write-Info "Using cluster: $SelectedCluster"
-            }
-            else {
-                # Pick first as default
-                $defaultCluster = $clusterNames[0]
-                $selection = Read-Host "Select cluster number (default: 1 - $defaultCluster)"
-                
-                if ([string]::IsNullOrWhiteSpace($selection)) {
-                    $SelectedCluster = $defaultCluster
-                }
-                else {
-                    try {
-                        $index = [int]$selection - 1
-                        if ($index -ge 0 -and $index -lt $clusterNames.Count) {
-                            $SelectedCluster = $clusterNames[$index]
-                        }
-                        else {
-                            Write-Warning "Invalid selection. Using default: $defaultCluster"
-                            $SelectedCluster = $defaultCluster
-                        }
-                    }
-                    catch {
-                        Write-Warning "Invalid selection. Using default: $defaultCluster"
-                        $SelectedCluster = $defaultCluster
-                    }
-                }
-            }
+            # No drasi-tutorial cluster found - just create it
+            Write-Info "Creating k3d cluster 'drasi-tutorial'..."
+            k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
+            Write-Success "k3d cluster created successfully"
+            $K3dClusterCreated = $true
+            $SelectedCluster = "drasi-tutorial"
         }
         
         # Set kubectl context to the selected cluster
         Write-Info "Switching kubectl context to k3d cluster..."
         kubectl config use-context "k3d-$SelectedCluster"
+        
+        # Verify the cluster is accessible
+        Write-Info "Verifying cluster connection..."
+        try {
+            $null = kubectl cluster-info 2>&1
+            Write-Success "Successfully connected to cluster"
+        }
+        catch {
+            Write-Error "Cannot connect to the k3d cluster"
+            Write-Info "Please check if the k3d cluster is running: k3d cluster list"
+            Write-Info "You may need to start it with: k3d cluster start $SelectedCluster"
+            exit 1
+        }
         
         # Check if Traefik is available
         if (Test-Traefik) {
