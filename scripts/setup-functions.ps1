@@ -233,7 +233,15 @@ function Test-DrasiCLI {
             
             # Use the official PowerShell installer
             try {
-                Invoke-WebRequest -useb "https://raw.githubusercontent.com/drasi-project/drasi-platform/main/cli/installers/install-drasi-cli.ps1" | Invoke-Expression
+                # Download the installer script first to avoid variable conflicts
+                $installerScript = Invoke-WebRequest -useb "https://raw.githubusercontent.com/drasi-project/drasi-platform/main/cli/installers/install-drasi-cli.ps1"
+                
+                # Create a new scope to avoid variable conflicts with strict mode
+                & {
+                    # Temporarily disable strict mode for the installer
+                    Set-StrictMode -Off
+                    $installerScript.Content | Invoke-Expression
+                }
                 
                 # Refresh PATH
                 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -253,8 +261,10 @@ function Test-DrasiCLI {
             }
             catch {
                 Write-Error "Failed to install Drasi CLI: $_"
-                Write-Info "Try running this command manually:"
+                Write-Info "Try running these commands manually in a new PowerShell window:"
+                Write-Host 'Set-StrictMode -Off' -ForegroundColor Yellow
                 Write-Host 'iwr -useb "https://raw.githubusercontent.com/drasi-project/drasi-platform/main/cli/installers/install-drasi-cli.ps1" | iex' -ForegroundColor Yellow
+                Write-Info "Or download and run the installer from: https://github.com/drasi-project/drasi-platform/releases"
                 exit 1
             }
         }
@@ -405,6 +415,7 @@ function Test-Traefik {
         if ($stillMissing.Count -gt 0) {
             Write-Warning "Still missing CRDs: $($stillMissing -join ', ')"
             Write-Warning "Traefik may not be properly installed. Ingress features will not work."
+            Write-Info "Note: k3d sometimes takes longer to install Traefik. You can continue with port-forwarding."
             return $false
         }
     }
