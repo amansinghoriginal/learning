@@ -21,17 +21,24 @@ $ErrorActionPreference = "Stop"
 
 # Get the directory where this script is located
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectRoot = Join-Path (Split-Path -Parent (Split-Path -Parent $ScriptDir)) -ChildPath ""
+# Navigate up from scripts -> building-comfort -> tutorial -> learning
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $ScriptDir))
 
 # Source shared functions
 . "$ProjectRoot\scripts\setup-functions.ps1"
 
+# Check for Administrator privileges (may be needed for Drasi uninstall)
+if (-not (Test-Administrator)) {
+    Write-Warning "This script may require Administrator privileges for some operations."
+    Write-Info "If any operations fail, please run PowerShell as Administrator."
+}
+
 # Display header
 Clear-Host
 Write-Host ""
-Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Yellow
-Write-Host "║     Building Comfort Cleanup           ║" -ForegroundColor Yellow
-Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Yellow
+Write-Host "+========================================+" -ForegroundColor Yellow
+Write-Host "|     Building Comfort Cleanup           |" -ForegroundColor Yellow
+Write-Host "+========================================+" -ForegroundColor Yellow
 Write-Host ""
 
 Write-Warning "This script will clean up the Building Comfort tutorial resources."
@@ -85,12 +92,12 @@ if (Read-UserChoice "Uninstall Drasi from the cluster?") {
     if (Test-K8sResource "namespace" "drasi-system") {
         Write-Info "Uninstalling Drasi..."
         try {
-            drasi uninstall 2>$null
+            drasi uninstall -y 2>$null
             Write-Success "Drasi uninstalled successfully"
         }
         catch {
             Write-Error "Failed to uninstall Drasi: $_"
-            Write-Info "You may need to run 'drasi uninstall' manually"
+            Write-Info "You may need to run 'drasi uninstall -y' manually"
         }
     }
     else {
@@ -157,15 +164,15 @@ else {
 }
 
 Write-Host ""
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "================================================================" -ForegroundColor Green
 Write-Host ""
 Write-Success "Cleanup complete!"
 Write-Host ""
 Write-Host "Thank you for trying the Building Comfort tutorial!" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "🔗 Learn more about Drasi:" -ForegroundColor Yellow
+Write-Host "Learn more about Drasi:" -ForegroundColor Yellow
 Write-Host "   Documentation: https://drasi.io/docs" -ForegroundColor Gray
 Write-Host "   GitHub: https://github.com/drasi-project" -ForegroundColor Gray
 Write-Host ""
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "================================================================" -ForegroundColor Green
 Write-Host ""

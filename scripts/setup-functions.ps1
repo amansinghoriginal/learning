@@ -19,25 +19,50 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Check if running as Administrator
+function Test-Administrator {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+# Check and require Administrator privileges
+function Require-Administrator {
+    if (-not (Test-Administrator)) {
+        Write-Error "This script requires Administrator privileges."
+        Write-Host ""
+        Write-Host "Please run PowerShell as Administrator:" -ForegroundColor Yellow
+        Write-Host "  1. Right-click on PowerShell" -ForegroundColor Gray
+        Write-Host "  2. Select 'Run as Administrator'" -ForegroundColor Gray
+        Write-Host "  3. Navigate to the script directory and run again" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "Or use this command from an elevated PowerShell:" -ForegroundColor Yellow
+        Write-Host "  cd '$PWD'" -ForegroundColor Cyan
+        Write-Host "  $($MyInvocation.MyCommand.Name)" -ForegroundColor Cyan
+        exit 1
+    }
+    Write-Success "Running with Administrator privileges"
+}
+
 # Output functions
 function Write-Info {
     param([string]$Message)
-    Write-Host "ℹ️  $Message" -ForegroundColor Cyan
+    Write-Host "[INFO] $Message" -ForegroundColor Cyan
 }
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "✅ $Message" -ForegroundColor Green
+    Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
 function Write-Warning {
     param([string]$Message)
-    Write-Host "⚠️  $Message" -ForegroundColor Yellow
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
 function Write-Error {
     param([string]$Message)
-    Write-Host "❌ $Message" -ForegroundColor Red
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
 # User interaction function
@@ -70,7 +95,7 @@ function Read-UserChoice {
 
 # Select deployment mode
 function Select-DeploymentMode {
-    Write-Host "`n📋 Select deployment mode:" -ForegroundColor Cyan
+    Write-Host "`n[MENU] Select deployment mode:" -ForegroundColor Cyan
     Write-Host "  1) Full k3d mode - Set up k3d cluster with Traefik ingress (recommended)" -ForegroundColor White
     Write-Host "  2) Apps-only mode - Deploy to existing Kubernetes cluster (advanced)" -ForegroundColor White
     Write-Host ""
@@ -125,60 +150,65 @@ function Test-Kubectl {
     }
     else {
         Write-Error "kubectl is not installed"
-        Write-Info "Please install kubectl from: https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/"
+        Write-Info "kubectl is required to interact with Kubernetes clusters"
         
-        # Offer to install using common Windows package managers
+        # Offer to install using package managers (kubectl only)
         if (Test-CommandExists "winget") {
             if (Read-UserChoice "Would you like to install kubectl using winget?") {
                 Write-Info "Installing kubectl with winget..."
-                winget install -e --id Kubernetes.kubectl
-                # Refresh PATH
-                $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-                if (Test-CommandExists "kubectl") {
-                    Write-Success "kubectl installed successfully"
+                try {
+                    winget install -e --id Kubernetes.kubectl
+                    # Refresh PATH
+                    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+                    if (Test-CommandExists "kubectl") {
+                        Write-Success "kubectl installed successfully"
+                    }
+                    else {
+                        Write-Error "Failed to install kubectl"
+                        exit 1
+                    }
                 }
-                else {
-                    Write-Error "Failed to install kubectl"
+                catch {
+                    Write-Error "Failed to install kubectl with winget: $_"
                     exit 1
                 }
             }
             else {
+                Write-Info "kubectl installation declined"
+                Write-Info "Please install kubectl manually from: https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/"
                 exit 1
             }
         }
         elseif (Test-CommandExists "choco") {
             if (Read-UserChoice "Would you like to install kubectl using Chocolatey?") {
                 Write-Info "Installing kubectl with Chocolatey..."
-                choco install kubernetes-cli -y
-                if (Test-CommandExists "kubectl") {
-                    Write-Success "kubectl installed successfully"
+                try {
+                    choco install kubernetes-cli -y
+                    # Refresh PATH
+                    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+                    if (Test-CommandExists "kubectl") {
+                        Write-Success "kubectl installed successfully"
+                    }
+                    else {
+                        Write-Error "Failed to install kubectl"
+                        exit 1
+                    }
                 }
-                else {
-                    Write-Error "Failed to install kubectl"
+                catch {
+                    Write-Error "Failed to install kubectl with Chocolatey: $_"
                     exit 1
                 }
             }
             else {
-                exit 1
-            }
-        }
-        elseif (Test-CommandExists "scoop") {
-            if (Read-UserChoice "Would you like to install kubectl using Scoop?") {
-                Write-Info "Installing kubectl with Scoop..."
-                scoop install kubectl
-                if (Test-CommandExists "kubectl") {
-                    Write-Success "kubectl installed successfully"
-                }
-                else {
-                    Write-Error "Failed to install kubectl"
-                    exit 1
-                }
-            }
-            else {
+                Write-Info "kubectl installation declined"
+                Write-Info "Please install kubectl manually from: https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/"
                 exit 1
             }
         }
         else {
+            Write-Error "No package manager found (winget or Chocolatey)"
+            Write-Info "Please install kubectl manually from: https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/"
+            Write-Info "Or install winget from: https://github.com/microsoft/winget-cli/releases"
             exit 1
         }
     }
@@ -201,28 +231,30 @@ function Test-DrasiCLI {
         if (Read-UserChoice "Would you like to install Drasi CLI?") {
             Write-Info "Installing Drasi CLI..."
             
-            # Download and run the Windows installer
+            # Use the official PowerShell installer
             try {
-                $installerUrl = "https://raw.githubusercontent.com/drasi-project/drasi-platform/main/cli/installers/install-drasi-cli.ps1"
-                $installerPath = "$env:TEMP\install-drasi-cli.ps1"
-                
-                Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
-                & $installerPath
+                Invoke-WebRequest -useb "https://raw.githubusercontent.com/drasi-project/drasi-platform/main/cli/installers/install-drasi-cli.ps1" | Invoke-Expression
                 
                 # Refresh PATH
                 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+                
+                # Sometimes we need to restart the shell, but let's check first
+                Start-Sleep -Seconds 2
                 
                 if (Test-CommandExists "drasi") {
                     Write-Success "Drasi CLI installed successfully"
                 }
                 else {
-                    Write-Error "Failed to install Drasi CLI"
-                    Write-Info "Please install manually from: https://drasi.io/how-to-guides/installation"
-                    exit 1
+                    Write-Warning "Drasi CLI installed but not found in PATH"
+                    Write-Info "You may need to restart your PowerShell session"
+                    Write-Info "After restarting, run this script again"
+                    exit 0
                 }
             }
             catch {
-                Write-Error "Failed to download Drasi CLI installer: $_"
+                Write-Error "Failed to install Drasi CLI: $_"
+                Write-Info "Try running this command manually:"
+                Write-Host 'iwr -useb "https://raw.githubusercontent.com/drasi-project/drasi-platform/main/cli/installers/install-drasi-cli.ps1" | iex' -ForegroundColor Yellow
                 exit 1
             }
         }
@@ -254,46 +286,47 @@ function Test-K3d {
         Write-Warning "k3d is not installed"
         Write-Info "k3d is required to create local Kubernetes clusters"
         
-        # Try to install k3d
-        if (Test-CommandExists "winget") {
-            if (Read-UserChoice "Would you like to install k3d using winget?") {
-                Write-Info "Installing k3d with winget..."
-                winget install -e --id k3d.k3d
-                # Refresh PATH
-                $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-                if (Test-CommandExists "k3d") {
-                    Write-Success "k3d installed successfully"
-                    return $true
+        if (Read-UserChoice "Would you like to install k3d $RequiredVersion?") {
+            Write-Info "Installing k3d $RequiredVersion..."
+            
+            # Download and install k3d directly
+            $k3dUrl = "https://github.com/k3d-io/k3d/releases/download/$RequiredVersion/k3d-windows-amd64.exe"
+            $targetPath = "C:\Tools\k3d\k3d.exe"
+            
+            try {
+                # Create folder if it doesn't exist
+                New-Item -ItemType Directory -Force -Path "C:\Tools\k3d" | Out-Null
+                
+                # Download k3d
+                Write-Info "Downloading k3d from GitHub..."
+                Invoke-WebRequest -Uri $k3dUrl -OutFile $targetPath -UseBasicParsing
+                
+                # Add to PATH if not already there
+                $envPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+                if ($envPath -notlike "*C:\Tools\k3d*") {
+                    [System.Environment]::SetEnvironmentVariable("Path", "$envPath;C:\Tools\k3d", [System.EnvironmentVariableTarget]::Machine)
+                    Write-Info "Added C:\Tools\k3d to system PATH"
+                    
+                    # Also update current session PATH
+                    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
                 }
+                
+                # Verify installation
+                & $targetPath version | Out-Null
+                Write-Success "k3d $RequiredVersion installed successfully"
+                return $true
+            }
+            catch {
+                Write-Error "Failed to install k3d: $_"
+                Write-Info "Please install k3d manually from: https://k3d.io/stable/#installation"
+                return $false
             }
         }
-        elseif (Test-CommandExists "choco") {
-            if (Read-UserChoice "Would you like to install k3d using Chocolatey?") {
-                Write-Info "Installing k3d with Chocolatey..."
-                choco install k3d -y
-                if (Test-CommandExists "k3d") {
-                    Write-Success "k3d installed successfully"
-                    return $true
-                }
-            }
+        else {
+            Write-Error "k3d is required for this tutorial"
+            Write-Info "Please install k3d manually from: https://k3d.io/stable/#installation"
+            return $false
         }
-        elseif (Test-CommandExists "scoop") {
-            if (Read-UserChoice "Would you like to install k3d using Scoop?") {
-                Write-Info "Installing k3d with Scoop..."
-                scoop install k3d
-                if (Test-CommandExists "k3d") {
-                    Write-Success "k3d installed successfully"
-                    return $true
-                }
-            }
-        }
-        
-        # If all installation methods fail or are declined
-        Write-Error "k3d installation failed or was declined"
-        Write-Info "Please install k3d manually from: https://k3d.io/stable/#installation"
-        Write-Info "Or use the following PowerShell command:"
-        Write-Host "Invoke-WebRequest -Uri 'https://github.com/k3d-io/k3d/releases/download/$RequiredVersion/k3d-windows-amd64.exe' -OutFile 'k3d.exe'" -ForegroundColor Yellow
-        return $false
     }
 }
 
@@ -337,7 +370,7 @@ function Test-Traefik {
     
     # Check for Traefik CRDs
     Write-Info "Checking for Traefik CRDs..."
-    $requiredCRDs = @("middlewares.traefik.io", "ingressroutes.traefik.io")
+    $requiredCRDs = @("middlewares.traefik.containo.us", "ingressroutes.traefik.containo.us")
     $missingCRDs = @()
     
     foreach ($crd in $requiredCRDs) {
@@ -446,7 +479,7 @@ function Deploy-App {
     if ($DeployIngress -eq "true") {
         $ingressFile = Join-Path $Directory "ingress.yaml"
         if (Test-Path $ingressFile) {
-            if (Test-K8sResource "crd" "ingressroutes.traefik.io" "all-namespaces") {
+            if (Test-K8sResource "crd" "ingressroutes.traefik.containo.us" "all-namespaces") {
                 kubectl apply -f $ingressFile -n $Namespace
                 Write-Success "$AppName deployed with ingress"
             }
@@ -494,7 +527,7 @@ function Initialize-Drasi {
                     if ($attempt -lt $MaxAttempts) {
                         if (Read-UserChoice "Would you like to uninstall and retry?") {
                             Write-Info "Uninstalling existing Drasi installation..."
-                            drasi uninstall 2>$null
+                            drasi uninstall -y 2>$null
                             Start-Sleep -Seconds 5
                         }
                         else {
@@ -581,11 +614,11 @@ function Show-Header {
     
     Clear-Host
     Write-Host ""
-    Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║         Drasi Tutorial Setup           ║" -ForegroundColor Cyan
-    Write-Host "║                                        ║" -ForegroundColor Cyan
-    Write-Host ("║  " + $TutorialName.PadRight(36) + "  ║") -ForegroundColor Cyan
-    Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "+========================================+" -ForegroundColor Cyan
+    Write-Host "|         Drasi Tutorial Setup           |" -ForegroundColor Cyan
+    Write-Host "|                                        |" -ForegroundColor Cyan
+    Write-Host ("|  " + $TutorialName.PadRight(36) + "  |") -ForegroundColor Cyan
+    Write-Host "+========================================+" -ForegroundColor Cyan
     Write-Host ""
 }
 
@@ -597,18 +630,18 @@ function Show-Completion {
     )
     
     Write-Host ""
-    Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Green
-    Write-Host "║        Setup Complete! 🎉              ║" -ForegroundColor Green
-    Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Green
+    Write-Host "+========================================+" -ForegroundColor Green
+    Write-Host "|        Setup Complete!                 |" -ForegroundColor Green
+    Write-Host "+========================================+" -ForegroundColor Green
     Write-Host ""
-    Write-Host "📋 Tutorial: $TutorialName" -ForegroundColor Cyan
-    Write-Host "🌐 Access URL: $AccessUrl" -ForegroundColor Cyan
+    Write-Host "[INFO] Tutorial: $TutorialName" -ForegroundColor Cyan
+    Write-Host "[INFO] Access URL: $AccessUrl" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "📚 Next Steps:" -ForegroundColor Yellow
+    Write-Host "[NEXT] Steps:" -ForegroundColor Yellow
     Write-Host "   1. Navigate to the drasi folder: cd drasi" -ForegroundColor White
     Write-Host "   2. Apply Drasi sources and queries as shown in the tutorial" -ForegroundColor White
     Write-Host "   3. Explore the demo application at $AccessUrl" -ForegroundColor White
     Write-Host ""
-    Write-Host "💡 Tip: Keep this terminal open to see any setup logs" -ForegroundColor Gray
+    Write-Host "[TIP] Keep this terminal open to see any setup logs" -ForegroundColor Gray
     Write-Host ""
 }

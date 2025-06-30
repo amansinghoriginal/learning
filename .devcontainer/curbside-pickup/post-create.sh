@@ -142,7 +142,7 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$DRASI_INITIALIZED" = "false" ]; do
         
         if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
             echo "Uninstalling Drasi before retry..."
-            drasi uninstall --force -y 2>/dev/null || true
+            drasi uninstall -y 2>/dev/null || true
             sleep 5
         else
             echo "ERROR: Failed to initialize Drasi after $MAX_ATTEMPTS attempts."

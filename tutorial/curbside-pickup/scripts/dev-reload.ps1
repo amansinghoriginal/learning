@@ -29,39 +29,39 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $TutorialDir = Split-Path -Parent $ScriptDir
 
-Write-Host "🔄 Dev Reload: $AppName" -ForegroundColor Cyan
+Write-Host "Dev Reload: $AppName" -ForegroundColor Cyan
 Write-Host ""
 
 # Check if Docker is available
 if (-not (Get-Command "docker" -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ Docker is not installed or not in PATH" -ForegroundColor Red
+    Write-Host "[ERROR] Docker is not installed or not in PATH" -ForegroundColor Red
     exit 1
 }
 
 # Check if k3d is available
 if (-not (Get-Command "k3d" -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ k3d is not installed or not in PATH" -ForegroundColor Red
+    Write-Host "[ERROR] k3d is not installed or not in PATH" -ForegroundColor Red
     exit 1
 }
 
 # Build the Docker image
-Write-Host "📦 Building Docker image..." -ForegroundColor Yellow
+Write-Host "Building Docker image..." -ForegroundColor Yellow
 $imageName = "curbside-pickup/$AppName-dev:latest"
 
 try {
     Push-Location "$TutorialDir\$AppName"
     docker build -t $imageName .
     Pop-Location
-    Write-Host "✅ Docker image built successfully" -ForegroundColor Green
+    Write-Host "[OK] Docker image built successfully" -ForegroundColor Green
 }
 catch {
     Pop-Location
-    Write-Host "❌ Failed to build Docker image: $_" -ForegroundColor Red
+    Write-Host "[ERROR] Failed to build Docker image: $_" -ForegroundColor Red
     exit 1
 }
 
 # Import image into k3d cluster
-Write-Host "📤 Importing image into k3d cluster..." -ForegroundColor Yellow
+Write-Host "Importing image into k3d cluster..." -ForegroundColor Yellow
 
 # Get the current kubectl context
 $currentContext = kubectl config current-context
@@ -70,7 +70,7 @@ if ($currentContext -match "k3d-(.+)") {
     Write-Host "   Using k3d cluster: $clusterName" -ForegroundColor Gray
 }
 else {
-    Write-Host "⚠️  Current context doesn't appear to be a k3d cluster: $currentContext" -ForegroundColor Yellow
+    Write-Host "[WARN] Current context doesn't appear to be a k3d cluster: $currentContext" -ForegroundColor Yellow
     $clusterName = Read-Host "Enter k3d cluster name (or press Enter for 'drasi-tutorial')"
     if ([string]::IsNullOrWhiteSpace($clusterName)) {
         $clusterName = "drasi-tutorial"
@@ -79,15 +79,15 @@ else {
 
 try {
     k3d image import $imageName -c $clusterName
-    Write-Host "✅ Image imported successfully" -ForegroundColor Green
+    Write-Host "[OK] Image imported successfully" -ForegroundColor Green
 }
 catch {
-    Write-Host "❌ Failed to import image: $_" -ForegroundColor Red
+    Write-Host "[ERROR] Failed to import image: $_" -ForegroundColor Red
     exit 1
 }
 
 # Update the deployment to use the custom image
-Write-Host "🚀 Updating deployment..." -ForegroundColor Yellow
+Write-Host "Updating deployment..." -ForegroundColor Yellow
 
 # Update the deployment with the new image
 $patchJson = @{
@@ -108,29 +108,29 @@ $patchJson = @{
 
 try {
     kubectl patch deployment $AppName --type merge -p $patchJson
-    Write-Host "✅ Deployment updated" -ForegroundColor Green
+    Write-Host "[OK] Deployment updated" -ForegroundColor Green
 }
 catch {
-    Write-Host "❌ Failed to update deployment: $_" -ForegroundColor Red
+    Write-Host "[ERROR] Failed to update deployment: $_" -ForegroundColor Red
     exit 1
 }
 
 # Restart the deployment to ensure fresh container
-Write-Host "♻️  Restarting deployment..." -ForegroundColor Yellow
+Write-Host "Restarting deployment..." -ForegroundColor Yellow
 try {
     kubectl rollout restart deployment/$AppName
     kubectl rollout status deployment/$AppName --timeout=60s
-    Write-Host "✅ Deployment restarted successfully" -ForegroundColor Green
+    Write-Host "[OK] Deployment restarted successfully" -ForegroundColor Green
 }
 catch {
-    Write-Host "⚠️  Deployment restart may still be in progress" -ForegroundColor Yellow
+    Write-Host "[WARN] Deployment restart may still be in progress" -ForegroundColor Yellow
 }
 
 Write-Host ""
-Write-Host "🎉 Dev reload complete!" -ForegroundColor Green
+Write-Host "Dev reload complete!" -ForegroundColor Green
 Write-Host "   Your local changes are now running in the cluster." -ForegroundColor Gray
 Write-Host ""
-Write-Host "💡 Tips:" -ForegroundColor Yellow
+Write-Host "Tips:" -ForegroundColor Yellow
 Write-Host "   - Changes to the code require rebuilding with this script" -ForegroundColor Gray
 Write-Host "   - To revert to the official image, run: .\reset-images.ps1 $AppName" -ForegroundColor Gray
 Write-Host ""

@@ -25,10 +25,14 @@ $ErrorActionPreference = "Stop"
 
 # Get the directory where this script is located
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectRoot = Join-Path (Split-Path -Parent (Split-Path -Parent $ScriptDir)) -ChildPath ""
+# Navigate up from scripts -> building-comfort -> tutorial -> learning
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $ScriptDir))
 
 # Source shared functions
 . "$ProjectRoot\scripts\setup-functions.ps1"
+
+# Check for Administrator privileges (required for software installation)
+Require-Administrator
 
 # Display header
 Show-Header -TutorialName "Building Comfort"
@@ -187,11 +191,11 @@ Write-Success "All applications deployed successfully!"
 
 # Show access instructions
 Write-Host ""
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "================================================================" -ForegroundColor Green
 Write-Host ""
 
 if ($DeployIngress -eq "true") {
-    Write-Host "🎉 Setup Complete! Access your applications at:" -ForegroundColor Green
+    Write-Host "[SUCCESS] Setup Complete! Access your applications at:" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Demo Portal:    http://localhost:8123/" -ForegroundColor Cyan
     Write-Host "  Control Panel:  http://localhost:8123/control-panel" -ForegroundColor Cyan
@@ -200,7 +204,7 @@ if ($DeployIngress -eq "true") {
     Write-Host "  The Demo Portal shows both the dashboard and control panel in a single view." -ForegroundColor Gray
 }
 else {
-    Write-Host "🎉 Setup Complete! To access your applications, use port-forwarding:" -ForegroundColor Green
+    Write-Host "[SUCCESS] Setup Complete! To access your applications, use port-forwarding:" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Demo Portal:" -ForegroundColor Cyan
     Write-Host "    kubectl port-forward svc/demo 8080:80" -ForegroundColor Yellow
@@ -212,7 +216,7 @@ else {
 }
 
 Write-Host ""
-Write-Host "📝 Next Steps:" -ForegroundColor Yellow
+Write-Host "[NEXT] Steps:" -ForegroundColor Yellow
 Write-Host "  1. Navigate to the drasi directory: cd drasi" -ForegroundColor White
 Write-Host "  2. Apply Drasi source:" -ForegroundColor White
 Write-Host "     drasi apply -f source-facilities.yaml" -ForegroundColor Gray
@@ -223,9 +227,9 @@ Write-Host "     drasi apply -f query-alert.yaml" -ForegroundColor Gray
 Write-Host "  4. Apply SignalR reaction:" -ForegroundColor White
 Write-Host "     drasi apply -f reaction-signalr.yaml" -ForegroundColor Gray
 Write-Host ""
-Write-Host "⚠️  Important: For the dashboard to work:" -ForegroundColor Yellow
+Write-Host "[IMPORTANT] For the dashboard to work:" -ForegroundColor Yellow
 Write-Host "  - The SignalR reaction service must be accessible on port 8080" -ForegroundColor White
 Write-Host "  - You may need to run: kubectl port-forward -n drasi-system svc/building-signalr-hub-gateway 8080:8080" -ForegroundColor Gray
 Write-Host ""
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "================================================================" -ForegroundColor Green
 Write-Host ""
