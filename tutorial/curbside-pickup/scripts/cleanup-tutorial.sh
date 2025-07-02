@@ -26,34 +26,34 @@ ERROR='\033[0;31m'     # Red
 NC='\033[0m'           # No Color
 
 print_info() {
-    echo -e "${INFO}[*] $1${NC}"
+    printf "${INFO}[*] %s${NC}\n" "$1"
 }
 
 print_success() {
-    echo -e "${SUCCESS}[+] $1${NC}"
+    printf "${SUCCESS}[+] %s${NC}\n" "$1"
 }
 
 print_warning() {
-    echo -e "${WARNING}[!] $1${NC}"
+    printf "${WARNING}[!] %s${NC}\n" "$1"
 }
 
 print_error() {
-    echo -e "${ERROR}[x] $1${NC}"
+    printf "${ERROR}[x] %s${NC}\n" "$1"
 }
 
 show_header() {
     echo
-    echo -e "${INFO}=== Curbside Pickup Tutorial Cleanup ===${NC}"
+    printf "${INFO}=== Curbside Pickup Tutorial Cleanup ===${NC}\n"
     echo
 }
 
 remove_tutorial_resources() {
     print_info "Removing Curbside Pickup tutorial resources..."
     
-    # Remove ingress routes if they exist
+    # Remove ingress and middleware
     print_info "Removing ingress routes..."
-    kubectl delete ingressroute delivery-dashboard-ingress delay-dashboard-ingress demo-ingress physical-ops-ingress retail-ops-ingress 2>/dev/null || true
-    kubectl delete middleware strip-delivery-dashboard-prefix strip-delay-dashboard-prefix strip-demo-prefix strip-physical-ops-prefix strip-retail-ops-prefix -n traefik 2>/dev/null || true
+    kubectl delete ingress delivery-dashboard-ingress delay-dashboard-ingress demo-ingress physical-ops-ingress retail-ops-ingress 2>/dev/null || true
+    kubectl delete middleware delivery-dashboard-stripprefix delay-dashboard-stripprefix physical-ops-stripprefix retail-ops-stripprefix 2>/dev/null || true
     
     # Remove applications
     print_info "Removing applications..."
@@ -73,20 +73,7 @@ remove_tutorial_resources() {
     kubectl delete configmap mysql-init-scripts 2>/dev/null || true
     kubectl delete pvc mysql-pvc 2>/dev/null || true
     
-    # Remove all resources by label
-    print_info "Removing any remaining resources by label..."
-    kubectl delete all -l app=curbside-pickup 2>/dev/null || true
-    
     print_success "Tutorial resources removed"
-}
-
-show_completion() {
-    echo
-    print_success "Curbside Pickup tutorial cleanup complete!"
-    echo
-    print_info "Thank you for trying the Curbside Pickup tutorial."
-    print_info "For more information, visit: https://drasi.io"
-    echo
 }
 
 # Main execution
@@ -101,4 +88,7 @@ if [[ "$response" != "y" ]]; then
 fi
 
 remove_tutorial_resources
-show_completion
+
+echo
+print_success "Curbside Pickup tutorial cleanup complete!"
+echo

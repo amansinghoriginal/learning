@@ -113,51 +113,40 @@ test_prerequisites() {
 }
 
 initialize_drasi() {
-    print_info "Checking Drasi installation..."
+    print_info "Initializing Drasi (required)..."
     
     # Check if drasi-system namespace exists
     if kubectl get namespace drasi-system >/dev/null 2>&1; then
         print_success "Drasi is already initialized"
-    else
-        print_warning "Drasi is not initialized"
-        echo -n "Initialize Drasi now? (y/n): "
-        read -r response
+        return
+    fi
+    
+    # Configure drasi environment
+    print_info "Configuring Drasi environment..."
+    if ! drasi env kube; then
+        print_warning "Failed to configure Drasi environment, continuing anyway..."
+    fi
+    
+    # Try to initialize Drasi (up to 3 attempts)
+    max_attempts=3
+    for i in $(seq 1 $max_attempts); do
+        print_info "Initialization attempt $i of $max_attempts..."
         
-        if [[ "$response" != "y" ]]; then
-            print_warning "Skipping Drasi initialization. You can run 'drasi init' manually later."
-            print_warning "Note: Drasi resources deployment will be skipped."
-            return 1
+        if drasi init; then
+            print_success "Drasi initialized successfully"
+            sleep 10  # Give resources time to create
+            break
         fi
         
-        print_info "Initializing Drasi..."
-        
-        # Configure drasi environment
-        if ! drasi env kube; then
-            print_error "Failed to configure Drasi environment"
+        if [ $i -lt $max_attempts ]; then
+            print_warning "Initialization failed, cleaning up and retrying..."
+            drasi uninstall -y >/dev/null 2>&1 || true
+            sleep 5
+        else
+            print_error "Failed to initialize Drasi after $max_attempts attempts"
             exit 1
         fi
-        
-        # Try to initialize Drasi (up to 3 attempts)
-        max_attempts=3
-        for i in $(seq 1 $max_attempts); do
-            print_info "Initialization attempt $i of $max_attempts..."
-            
-            if drasi init; then
-                print_success "Drasi initialized successfully"
-                sleep 10  # Give resources time to create
-                break
-            fi
-            
-            if [ $i -lt $max_attempts ]; then
-                print_warning "Initialization failed, cleaning up and retrying..."
-                drasi uninstall -y >/dev/null 2>&1 || true
-                sleep 5
-            else
-                print_error "Failed to initialize Drasi after $max_attempts attempts"
-                exit 1
-            fi
-        done
-    fi
+    done
     
     # Verify Drasi is working
     print_info "Verifying Drasi installation..."
@@ -166,7 +155,6 @@ initialize_drasi() {
         exit 1
     fi
     print_success "Drasi is ready"
-    return 0
 }
 
 deploy_database() {
@@ -212,62 +200,54 @@ deploy_applications() {
 }
 
 setup_ingress() {
-    print_info "Checking for Traefik v2.x ingress controller..."
+    print_info "Setting up ingress routes (required)..."
     
     # Check if Traefik CRDs exist (v2.x uses traefik.containo.us)
     if ! kubectl get crd ingressroutes.traefik.containo.us >/dev/null 2>&1; then
-        print_warning "Traefik v2.x not found. Skipping ingress setup."
-        return 1
+        print_error "Traefik v2.x not found. The tutorial requires Traefik v2.x ingress controller."
+        echo
+        echo "Solutions:"
+        echo "1. Ensure your k3d cluster was created WITHOUT '--k3s-arg --disable=traefik@server:0'"
+        echo "2. Recreate cluster: k3d cluster create drasi-tutorial -p '8123:80@loadbalancer'"
+        echo
+        print_error "Setup aborted. Please fix ingress and re-run."
+        exit 1
     fi
     
-    print_info "Attempting to deploy ingress routes..."
+    print_info "Deploying ingress routes..."
     cd "$TUTORIAL_DIR"
     
-    # Try to deploy ingress routes
-    ingress_failed=false
-    kubectl apply -f dashboard/k8s/ingress.yaml >/dev/null 2>&1 || ingress_failed=true
-    kubectl apply -f demo/k8s/ingress.yaml >/dev/null 2>&1 || ingress_failed=true
-    kubectl apply -f control-panel/k8s/ingress.yaml >/dev/null 2>&1 || ingress_failed=true
-    
-    if [ "$ingress_failed" = false ]; then
-        print_success "Ingress routes configured"
-        return 0
-    else
-        print_warning "Some ingress routes failed to deploy"
-        return 1
+    # Deploy ingress routes (all must succeed)
+    if ! kubectl apply -f dashboard/k8s/ingress.yaml; then
+        print_error "Failed to deploy dashboard ingress"
+        exit 1
     fi
+    
+    if ! kubectl apply -f demo/k8s/ingress.yaml; then
+        print_error "Failed to deploy demo ingress"
+        exit 1
+    fi
+    
+    if ! kubectl apply -f control-panel/k8s/ingress.yaml; then
+        print_error "Failed to deploy control-panel ingress"
+        exit 1
+    fi
+    
+    print_success "Ingress routes configured"
 }
 
 show_access_instructions() {
-    local use_ingress=$1
-    
     echo
     print_success "Setup complete!"
     echo
     
-    if [ "$use_ingress" -eq 0 ]; then
-        print_info "Access the applications at:"
-        echo "  - Demo Portal:   http://localhost:8123/"
-        echo "  - Dashboard:     http://localhost:8123/dashboard"
-        echo "  - Control Panel: http://localhost:8123/control-panel"
-        echo "  - API Docs:      http://localhost:8123/control-panel/docs"
-        echo
-        print_info "Note: This assumes your k3d cluster was created with port mapping 8123:80"
-    else
-        print_info "Ingress not configured. Use one of these options:"
-        echo
-        echo "Option 1: Configure ingress manually (if you have Traefik or another ingress controller)"
-        echo
-        echo "Option 2: Use port-forwarding to access the applications:"
-        echo "  - Demo Portal:   kubectl port-forward svc/demo 3000:80"
-        echo "  - Dashboard:     kubectl port-forward svc/dashboard 3001:80"
-        echo "  - Control Panel: kubectl port-forward svc/control-panel 3002:80"
-        echo ""
-        echo "  Then access at:"
-        echo "  - Demo Portal:   http://localhost:3000"
-        echo "  - Dashboard:     http://localhost:3001"
-        echo "  - Control Panel: http://localhost:3002"
-    fi
+    print_info "Access the applications at:"
+    echo "  - Demo Portal:   http://localhost:8123/"
+    echo "  - Dashboard:     http://localhost:8123/dashboard"
+    echo "  - Control Panel: http://localhost:8123/control-panel"
+    echo "  - API Docs:      http://localhost:8123/control-panel/docs"
+    echo
+    print_info "Note: This assumes your k3d cluster was created with port mapping 8123:80"
     
     echo
     print_info "Next steps:"
@@ -279,27 +259,8 @@ show_access_instructions() {
 # Main execution
 show_header
 test_prerequisites
-
-# Try to initialize Drasi but continue even if user declines
-drasi_initialized=0
-if initialize_drasi; then
-    drasi_initialized=1
-fi
-
+initialize_drasi
 deploy_database
 deploy_applications
-
-if setup_ingress; then
-    use_ingress=0
-else
-    use_ingress=1
-fi
-
-show_access_instructions $use_ingress
-
-# Additional warning if Drasi wasn't initialized
-if [ $drasi_initialized -eq 0 ]; then
-    echo
-    print_warning "Remember: Drasi was not initialized. The tutorial applications are deployed,"
-    print_warning "but you'll need to run 'drasi init' manually before deploying Drasi resources."
-fi
+setup_ingress
+show_access_instructions

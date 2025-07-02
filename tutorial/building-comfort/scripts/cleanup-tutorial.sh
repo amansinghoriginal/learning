@@ -26,34 +26,34 @@ ERROR='\033[0;31m'     # Red
 NC='\033[0m'           # No Color
 
 print_info() {
-    echo -e "${INFO}[*] $1${NC}"
+    printf "${INFO}[*] %s${NC}\n" "$1"
 }
 
 print_success() {
-    echo -e "${SUCCESS}[+] $1${NC}"
+    printf "${SUCCESS}[+] %s${NC}\n" "$1"
 }
 
 print_warning() {
-    echo -e "${WARNING}[!] $1${NC}"
+    printf "${WARNING}[!] %s${NC}\n" "$1"
 }
 
 print_error() {
-    echo -e "${ERROR}[x] $1${NC}"
+    printf "${ERROR}[x] %s${NC}\n" "$1"
 }
 
 show_header() {
     echo
-    echo -e "${INFO}=== Building Comfort Tutorial Cleanup ===${NC}"
+    printf "${INFO}=== Building Comfort Tutorial Cleanup ===${NC}\n"
     echo
 }
 
 remove_tutorial_resources() {
     print_info "Removing Building Comfort tutorial resources..."
     
-    # Remove ingress routes if they exist
+    # Remove ingress and middleware
     print_info "Removing ingress routes..."
-    kubectl delete ingressroute dashboard-ingress demo-ingress control-panel-ingress 2>/dev/null || true
-    kubectl delete middleware strip-dashboard-prefix strip-demo-prefix strip-control-panel-prefix -n traefik 2>/dev/null || true
+    kubectl delete ingress dashboard-ingress demo-ingress control-panel-ingress 2>/dev/null || true
+    kubectl delete middleware dashboard-stripprefix control-panel-stripprefix 2>/dev/null || true
     
     # Remove applications
     print_info "Removing applications..."
@@ -67,20 +67,7 @@ remove_tutorial_resources() {
     kubectl delete configmap postgres-init-scripts 2>/dev/null || true
     kubectl delete pvc postgres-pvc 2>/dev/null || true
     
-    # Remove all resources by label
-    print_info "Removing any remaining resources by label..."
-    kubectl delete all -l app=building-comfort 2>/dev/null || true
-    
     print_success "Tutorial resources removed"
-}
-
-show_completion() {
-    echo
-    print_success "Building Comfort tutorial cleanup complete!"
-    echo
-    print_info "Thank you for trying the Building Comfort tutorial."
-    print_info "For more information, visit: https://drasi.io"
-    echo
 }
 
 # Main execution
@@ -95,4 +82,7 @@ if [[ "$response" != "y" ]]; then
 fi
 
 remove_tutorial_resources
-show_completion
+
+echo
+print_success "Building Comfort tutorial cleanup complete!"
+echo

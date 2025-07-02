@@ -123,30 +123,13 @@ The setup includes:
    - Deploy all applications
 
 4. Access applications:
-   - If Traefik ingress is configured:
-     - Demo (All Apps): http://localhost:8123/
-     - Physical Operations: http://localhost:8123/physical-ops
-     - Retail Operations: http://localhost:8123/retail-ops
-     - Delivery Dashboard: http://localhost:8123/delivery-dashboard
-     - Delay Dashboard: http://localhost:8123/delay-dashboard
-     - Physical Operations API Docs: http://localhost:8123/physical-ops/docs
-     - Retail Operations API Docs: http://localhost:8123/retail-ops/docs
-   
-   - If using port-forwarding (run each command in a separate terminal):
-     ```bash
-     kubectl port-forward svc/demo 3000:80
-     kubectl port-forward svc/retail-ops 3001:80
-     kubectl port-forward svc/physical-ops 3002:80
-     kubectl port-forward svc/delivery-dashboard 3003:80
-     kubectl port-forward svc/delay-dashboard 3004:80
-     ```
-     
-     Then access at:
-     - Demo Portal: http://localhost:3000
-     - Retail Ops: http://localhost:3001
-     - Physical Ops: http://localhost:3002
-     - Delivery Dashboard: http://localhost:3003
-     - Delay Dashboard: http://localhost:3004
+   - Demo (All Apps): http://localhost:8123/
+   - Physical Operations: http://localhost:8123/physical-ops
+   - Retail Operations: http://localhost:8123/retail-ops
+   - Delivery Dashboard: http://localhost:8123/delivery-dashboard
+   - Delay Dashboard: http://localhost:8123/delay-dashboard
+   - Physical Operations API Docs: http://localhost:8123/physical-ops/docs
+   - Retail Operations API Docs: http://localhost:8123/retail-ops/docs
 
 ### Traefik Compatibility
 

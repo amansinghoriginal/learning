@@ -115,16 +115,10 @@ The setup includes:
    - Deploy all applications
 
 4. Access applications:
-   - If Traefik ingress is configured:
-     - Demo: http://localhost:8123/
-     - Control Panel: http://localhost:8123/control-panel
-     - Dashboard: http://localhost:8123/dashboard
-     - Control Panel API Docs: http://localhost:8123/control-panel/docs
-   
-   - If using port-forwarding:
-     - Dashboard: `kubectl port-forward svc/dashboard 3000:3000` then http://localhost:3000
-     - Demo Portal: `kubectl port-forward svc/demo 3001:3000` then http://localhost:3001
-     - Control Panel: `kubectl port-forward svc/control-panel 8001:8000` then http://localhost:8001
+   - Demo: http://localhost:8123/
+   - Control Panel: http://localhost:8123/control-panel
+   - Dashboard: http://localhost:8123/dashboard
+   - Control Panel API Docs: http://localhost:8123/control-panel/docs
 
 ### Traefik Compatibility
 

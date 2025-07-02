@@ -45,47 +45,41 @@ function Show-Header {
 function Remove-TutorialResources {
     Write-Info "Removing Building Comfort tutorial resources..."
     
-    # Remove ingress routes if they exist
+    # Remove ingress and middleware
     Write-Info "Removing ingress routes..."
-    kubectl delete ingressroute dashboard-ingress demo-ingress control-panel-ingress 2>&1 | Out-Null
-    kubectl delete middleware strip-dashboard-prefix strip-demo-prefix strip-control-panel-prefix -n traefik 2>&1 | Out-Null
+    kubectl delete ingress dashboard-ingress demo-ingress control-panel-ingress 2>$null
+    kubectl delete middleware dashboard-stripprefix control-panel-stripprefix 2>$null
     
     # Remove applications
     Write-Info "Removing applications..."
-    kubectl delete deployment dashboard demo control-panel 2>&1 | Out-Null
-    kubectl delete service dashboard demo control-panel 2>&1 | Out-Null
+    kubectl delete deployment dashboard demo control-panel 2>$null
+    kubectl delete service dashboard demo control-panel 2>$null
     
     # Remove database
     Write-Info "Removing PostgreSQL database..."
-    kubectl delete deployment postgres 2>&1 | Out-Null
-    kubectl delete service postgres 2>&1 | Out-Null
-    kubectl delete configmap postgres-init-scripts 2>&1 | Out-Null
-    kubectl delete pvc postgres-pvc 2>&1 | Out-Null
-    
-    # Remove all resources by label
-    Write-Info "Removing any remaining resources by label..."
-    kubectl delete all -l app=building-comfort 2>&1 | Out-Null
+    kubectl delete deployment postgres 2>$null
+    kubectl delete service postgres 2>$null
+    kubectl delete configmap postgres-init-scripts 2>$null
+    kubectl delete pvc postgres-pvc 2>$null
     
     Write-Success "Tutorial resources removed"
-}
-
-function Show-Completion {
-    Write-Host ""
-    Write-Success "Building Comfort tutorial cleanup complete!"
-    Write-Host ""
-    Write-Info "Thank you for trying the Building Comfort tutorial."
-    Write-Info "For more information, visit: https://drasi.io"
-    Write-Host ""
 }
 
 # Main execution
 Show-Header
 
 $response = Read-Host "This will remove all Building Comfort tutorial resources. Continue? (y/n)"
+
 if ($response -ne 'y') {
     Write-Info "Cleanup cancelled"
     exit 0
 }
 
+# Set error action to continue for cleanup operations
+$ErrorActionPreference = "Continue"
+
 Remove-TutorialResources
-Show-Completion
+
+Write-Host ""
+Write-Success "Building Comfort tutorial cleanup complete!"
+Write-Host ""

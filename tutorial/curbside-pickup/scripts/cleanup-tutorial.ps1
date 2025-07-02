@@ -45,53 +45,47 @@ function Show-Header {
 function Remove-TutorialResources {
     Write-Info "Removing Curbside Pickup tutorial resources..."
     
-    # Remove ingress routes if they exist
+    # Remove ingress and middleware
     Write-Info "Removing ingress routes..."
-    kubectl delete ingressroute delivery-dashboard-ingress delay-dashboard-ingress demo-ingress physical-ops-ingress retail-ops-ingress 2>&1 | Out-Null
-    kubectl delete middleware strip-delivery-dashboard-prefix strip-delay-dashboard-prefix strip-demo-prefix strip-physical-ops-prefix strip-retail-ops-prefix -n traefik 2>&1 | Out-Null
+    kubectl delete ingress delivery-dashboard-ingress delay-dashboard-ingress demo-ingress physical-ops-ingress retail-ops-ingress 2>$null
+    kubectl delete middleware delivery-dashboard-stripprefix delay-dashboard-stripprefix physical-ops-stripprefix retail-ops-stripprefix 2>$null
     
     # Remove applications
     Write-Info "Removing applications..."
-    kubectl delete deployment delivery-dashboard delay-dashboard demo physical-ops retail-ops 2>&1 | Out-Null
-    kubectl delete service delivery-dashboard delay-dashboard demo physical-ops retail-ops 2>&1 | Out-Null
+    kubectl delete deployment delivery-dashboard delay-dashboard demo physical-ops retail-ops 2>$null
+    kubectl delete service delivery-dashboard delay-dashboard demo physical-ops retail-ops 2>$null
     
     # Remove databases
     Write-Info "Removing PostgreSQL database..."
-    kubectl delete deployment postgres 2>&1 | Out-Null
-    kubectl delete service postgres 2>&1 | Out-Null
-    kubectl delete configmap postgres-init-scripts 2>&1 | Out-Null
-    kubectl delete pvc postgres-pvc 2>&1 | Out-Null
+    kubectl delete deployment postgres 2>$null
+    kubectl delete service postgres 2>$null
+    kubectl delete configmap postgres-init-scripts 2>$null
+    kubectl delete pvc postgres-pvc 2>$null
     
     Write-Info "Removing MySQL database..."
-    kubectl delete deployment mysql 2>&1 | Out-Null
-    kubectl delete service mysql 2>&1 | Out-Null
-    kubectl delete configmap mysql-init-scripts 2>&1 | Out-Null
-    kubectl delete pvc mysql-pvc 2>&1 | Out-Null
-    
-    # Remove all resources by label
-    Write-Info "Removing any remaining resources by label..."
-    kubectl delete all -l app=curbside-pickup 2>&1 | Out-Null
+    kubectl delete deployment mysql 2>$null
+    kubectl delete service mysql 2>$null
+    kubectl delete configmap mysql-init-scripts 2>$null
+    kubectl delete pvc mysql-pvc 2>$null
     
     Write-Success "Tutorial resources removed"
-}
-
-function Show-Completion {
-    Write-Host ""
-    Write-Success "Curbside Pickup tutorial cleanup complete!"
-    Write-Host ""
-    Write-Info "Thank you for trying the Curbside Pickup tutorial."
-    Write-Info "For more information, visit: https://drasi.io"
-    Write-Host ""
 }
 
 # Main execution
 Show-Header
 
 $response = Read-Host "This will remove all Curbside Pickup tutorial resources. Continue? (y/n)"
+
 if ($response -ne 'y') {
     Write-Info "Cleanup cancelled"
     exit 0
 }
 
+# Set error action to continue for cleanup operations
+$ErrorActionPreference = "Continue"
+
 Remove-TutorialResources
-Show-Completion
+
+Write-Host ""
+Write-Success "Curbside Pickup tutorial cleanup complete!"
+Write-Host ""
