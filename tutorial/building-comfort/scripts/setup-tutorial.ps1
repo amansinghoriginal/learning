@@ -64,7 +64,16 @@ function Test-Prerequisites {
     
     # Check cluster connection
     Write-Info "Checking Kubernetes cluster connection..."
-    $job = Start-Job -ScriptBlock { kubectl cluster-info 2>&1 }
+    
+    # Run kubectl cluster-info with a timeout
+    $job = Start-Job -ScriptBlock { 
+        $result = kubectl cluster-info 2>&1
+        return @{
+            Output = $result
+            ExitCode = $LASTEXITCODE
+        }
+    }
+    
     $completed = Wait-Job -Job $job -Timeout 20
     
     if (-not $completed) {
@@ -79,10 +88,12 @@ function Test-Prerequisites {
         exit 1
     }
     
-    $result = Receive-Job -Job $job
+    # Get the job result
+    $jobResult = Receive-Job -Job $job
     Remove-Job -Job $job
     
-    if ($LASTEXITCODE -ne 0) {
+    # Check if kubectl command succeeded
+    if ($jobResult.ExitCode -ne 0) {
         Write-Error "No Kubernetes cluster found or connection failed"
         Write-Error "Please create a k3d cluster first:"
         Write-Error "  k3d cluster create drasi-tutorial -p '8123:80@loadbalancer'"

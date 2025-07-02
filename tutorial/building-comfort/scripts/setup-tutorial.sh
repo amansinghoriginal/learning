@@ -31,29 +31,44 @@ ERROR='\033[0;31m'     # Red
 NC='\033[0m'           # No Color
 
 print_info() {
-    echo -e "${INFO}[*] $1${NC}"
+    printf "${INFO}[*] %s${NC}\n" "$1"
 }
 
 print_success() {
-    echo -e "${SUCCESS}[+] $1${NC}"
+    printf "${SUCCESS}[+] %s${NC}\n" "$1"
 }
 
 print_warning() {
-    echo -e "${WARNING}[!] $1${NC}"
+    printf "${WARNING}[!] %s${NC}\n" "$1"
 }
 
 print_error() {
-    echo -e "${ERROR}[x] $1${NC}"
+    printf "${ERROR}[x] %s${NC}\n" "$1"
 }
 
 show_header() {
     echo
-    echo -e "${INFO}=== Building Comfort Tutorial Setup ===${NC}"
+    printf "${INFO}=== Building Comfort Tutorial Setup ===${NC}\n"
     echo
 }
 
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+# Portable timeout function using perl (available on all Linux and macOS systems)
+timeout_command() {
+    local duration=$1
+    shift
+    
+    # Run command with timeout using perl
+    perl -e '
+        $SIG{ALRM} = sub { die "timeout\n" };
+        alarm shift;
+        $ret = system(@ARGV);
+        alarm 0;
+        exit($ret >> 8);
+    ' "$duration" "$@"
 }
 
 test_prerequisites() {
@@ -68,8 +83,12 @@ test_prerequisites() {
     
     # Check cluster connection
     print_info "Checking Kubernetes cluster connection..."
-    if ! timeout 20s kubectl cluster-info >/dev/null 2>&1; then
-        if [ $? -eq 124 ]; then
+    timeout_command 20s kubectl cluster-info >/dev/null 2>&1
+    local exit_code=$?
+    
+    if [ $exit_code -ne 0 ]; then
+        # Check if it was a timeout (exit code 255 from our perl script when it dies)
+        if [ $exit_code -eq 255 ]; then
             print_error "Cannot connect to Kubernetes cluster (timeout after 20 seconds)"
             print_error "Please ensure you have a k3d cluster running:"
             print_error "  k3d cluster create drasi-tutorial -p '8123:80@loadbalancer'"
