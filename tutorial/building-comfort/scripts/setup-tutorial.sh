@@ -259,9 +259,14 @@ show_access_instructions() {
         echo "Option 1: Configure ingress manually (if you have Traefik or another ingress controller)"
         echo
         echo "Option 2: Use port-forwarding to access the applications:"
-        echo "  - Dashboard:     kubectl port-forward svc/dashboard 3000:3000"
-        echo "  - Demo Portal:   kubectl port-forward svc/demo 3001:3000"
-        echo "  - Control Panel: kubectl port-forward svc/control-panel 8001:8000"
+        echo "  - Demo Portal:   kubectl port-forward svc/demo 3000:80"
+        echo "  - Dashboard:     kubectl port-forward svc/dashboard 3001:80"
+        echo "  - Control Panel: kubectl port-forward svc/control-panel 3002:80"
+        echo ""
+        echo "  Then access at:"
+        echo "  - Demo Portal:   http://localhost:3000"
+        echo "  - Dashboard:     http://localhost:3001"
+        echo "  - Control Panel: http://localhost:3002"
     fi
     
     echo

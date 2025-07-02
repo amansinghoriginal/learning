@@ -132,12 +132,21 @@ The setup includes:
      - Physical Operations API Docs: http://localhost:8123/physical-ops/docs
      - Retail Operations API Docs: http://localhost:8123/retail-ops/docs
    
-   - If using port-forwarding:
-     - Delivery Dashboard: `kubectl port-forward svc/delivery-dashboard 3000:3000` then http://localhost:3000
-     - Delay Dashboard: `kubectl port-forward svc/delay-dashboard 3001:3000` then http://localhost:3001
-     - Demo Portal: `kubectl port-forward svc/demo 3002:3000` then http://localhost:3002
-     - Physical Ops: `kubectl port-forward svc/physical-ops 8003:8003` then http://localhost:8003
-     - Retail Ops: `kubectl port-forward svc/retail-ops 8004:8004` then http://localhost:8004
+   - If using port-forwarding (run each command in a separate terminal):
+     ```bash
+     kubectl port-forward svc/demo 3000:80
+     kubectl port-forward svc/retail-ops 3001:80
+     kubectl port-forward svc/physical-ops 3002:80
+     kubectl port-forward svc/delivery-dashboard 3003:80
+     kubectl port-forward svc/delay-dashboard 3004:80
+     ```
+     
+     Then access at:
+     - Demo Portal: http://localhost:3000
+     - Retail Ops: http://localhost:3001
+     - Physical Ops: http://localhost:3002
+     - Delivery Dashboard: http://localhost:3003
+     - Delay Dashboard: http://localhost:3004
 
 ### Traefik Compatibility
 

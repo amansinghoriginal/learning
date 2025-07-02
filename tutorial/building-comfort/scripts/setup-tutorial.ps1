@@ -272,9 +272,14 @@ function Show-AccessInstructions($useIngress) {
         Write-Host "Option 1: Configure ingress manually (if you have Traefik or another ingress controller)"
         Write-Host ""
         Write-Host "Option 2: Use port-forwarding to access the applications:"
-        Write-Host "  - Dashboard:     kubectl port-forward svc/dashboard 3000:3000"
-        Write-Host "  - Demo Portal:   kubectl port-forward svc/demo 3001:3000"
-        Write-Host "  - Control Panel: kubectl port-forward svc/control-panel 8001:8000"
+        Write-Host "  - Demo Portal:   kubectl port-forward svc/demo 3000:80"
+        Write-Host "  - Dashboard:     kubectl port-forward svc/dashboard 3001:80"
+        Write-Host "  - Control Panel: kubectl port-forward svc/control-panel 3002:80"
+        Write-Host ""
+        Write-Host "  Then access at:"
+        Write-Host "  - Demo Portal:   http://localhost:3000"
+        Write-Host "  - Dashboard:     http://localhost:3001"
+        Write-Host "  - Control Panel: http://localhost:3002"
     }
     
     Write-Host ""

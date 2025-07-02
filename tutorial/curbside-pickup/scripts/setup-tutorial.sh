@@ -283,11 +283,18 @@ show_access_instructions() {
         echo "Option 1: Configure ingress manually (if you have Traefik or another ingress controller)"
         echo
         echo "Option 2: Use port-forwarding to access the applications:"
-        echo "  - Delivery Dashboard: kubectl port-forward svc/delivery-dashboard 3000:3000"
-        echo "  - Delay Dashboard:    kubectl port-forward svc/delay-dashboard 3001:3000"
-        echo "  - Demo Portal:        kubectl port-forward svc/demo 3002:3000"
-        echo "  - Physical Ops:       kubectl port-forward svc/physical-ops 8003:8003"
-        echo "  - Retail Ops:         kubectl port-forward svc/retail-ops 8004:8004"
+        echo "  - Demo Portal:        kubectl port-forward svc/demo 3000:80"
+        echo "  - Retail Ops:         kubectl port-forward svc/retail-ops 3001:80"
+        echo "  - Physical Ops:       kubectl port-forward svc/physical-ops 3002:80"
+        echo "  - Delivery Dashboard: kubectl port-forward svc/delivery-dashboard 3003:80"
+        echo "  - Delay Dashboard:    kubectl port-forward svc/delay-dashboard 3004:80"
+        echo ""
+        echo "  Then access at:"
+        echo "  - Demo Portal:        http://localhost:3000"
+        echo "  - Retail Ops:         http://localhost:3001"
+        echo "  - Physical Ops:       http://localhost:3002"
+        echo "  - Delivery Dashboard: http://localhost:3003"
+        echo "  - Delay Dashboard:    http://localhost:3004"
     fi
     
     echo
