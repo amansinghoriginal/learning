@@ -110,11 +110,70 @@ jobs:
             echo "tag=latest" >> $GITHUB_OUTPUT
           fi
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Generate package-lock.json if missing
+        run: |
+          cd tutorial/${{ matrix.tutorial }}
+          
+          # Function to check and generate package-lock.json if needed
+          check_npm_lock() {
+            if [ -f "$1/package.json" ] && [ ! -f "$1/package-lock.json" ]; then
+              echo "Missing package-lock.json in $1, generating..."
+              (cd "$1" && npm install)
+            fi
+          }
+          
+          # Check each app directory based on tutorial
+          case "${{ matrix.tutorial }}" in
+            "curbside-pickup")
+              check_npm_lock "./physical-ops/frontend"
+              check_npm_lock "./retail-ops/frontend"
+              check_npm_lock "./delivery-dashboard"
+              check_npm_lock "./delay-dashboard"
+              ;;
+            "building-comfort")
+              check_npm_lock "./control-panel/frontend"
+              check_npm_lock "./dashboard"
+              ;;
+          esac
+      
       - name: Build and push images
         run: |
-          cd scripts
-          chmod +x build-and-push-tutorial.sh
-          ./build-and-push-tutorial.sh ${{ matrix.tutorial }} ${{ steps.tag.outputs.tag }}
+          cd tutorial/${{ matrix.tutorial }}
+          TAG="${{ steps.tag.outputs.tag }}"
+          
+          # Function to build and push an image
+          build_and_push() {
+            local app=$1
+            local context=$2
+            
+            echo "Building $app..."
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              -t "${{ env.IMAGE_PREFIX }}/${{ matrix.tutorial }}/$app:$TAG" \
+              --push \
+              "$context"
+          }
+          
+          # Build images based on tutorial
+          case "${{ matrix.tutorial }}" in
+            "curbside-pickup")
+              build_and_push "demo" "./demo"
+              build_and_push "physical-ops" "./physical-ops"
+              build_and_push "retail-ops" "./retail-ops"
+              build_and_push "delivery-dashboard" "./delivery-dashboard"
+              build_and_push "delay-dashboard" "./delay-dashboard"
+              ;;
+            "building-comfort")
+              build_and_push "control-panel" "./control-panel"
+              build_and_push "dashboard" "./dashboard"
+              build_and_push "demo" "./demo"
+              ;;
+          esac
       
       - name: Generate image list
         id: images

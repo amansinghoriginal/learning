@@ -83,37 +83,61 @@ The setup includes:
 
 ## Setup your own Local k3d Cluster
 
-1. Prerequisites:
-   - Docker
-   - kubectl
-   - k3d (optional - script will install if needed)
+### Prerequisites:
+- Docker
+- kubectl
+- k3d
+- Drasi CLI
 
-2. Run setup:
+### Installation Instructions:
+- **kubectl**: https://kubernetes.io/docs/tasks/tools/
+- **k3d**: https://k3d.io/#installation
+- **Drasi CLI**: https://drasi.io/reference/command-line-interface/#get-the-drasi-cli
+
+### Setup Steps:
+
+1. Create a k3d cluster with port mapping:
+   ```bash
+   k3d cluster create drasi-tutorial -p 8123:80@loadbalancer
+   ```
+   
+   **Note**: This creates a cluster with Traefik v2.x included.
+
+2. Run the setup script:
    ```bash
    cd tutorial/curbside-pickup
-   ./scripts/setup-tutorial.sh
+   ./scripts/setup-tutorial.sh     # Mac/Linux
+   ./scripts/setup-tutorial.ps1    # Windows (PowerShell)
    ```
 
-3. Choose setup mode:
-   - Select "1" for full k3d setup (recommended)
-   - Follow prompts to create cluster and deploy apps
-
-**The script will:**
-- Install k3d if not present
-- Create k3d cluster 'drasi-tutorial' with Traefik
-- Install and initialize Drasi platform
-- Deploy PostgreSQL and MySQL with sample data
-- Deploy all applications (Physical Ops, Retail Ops, Dashboards, Demo)
-- Configure ingress routing for web access
+3. Follow the prompts:
+   - The script will check prerequisites
+   - Initialize Drasi if not already installed (requires confirmation)
+   - Deploy PostgreSQL and MySQL databases
+   - Deploy all applications
 
 4. Access applications:
-   - Demo (All Apps): http://localhost/
-   - Physical Operations: http://localhost/physical-ops
-   - Retail Operations: http://localhost/retail-ops
-   - Delivery Dashboard: http://localhost/delivery-dashboard
-   - Delay Dashboard: http://localhost/delay-dashboard
-   - Physical Operations API Docs: http://localhost/physical-ops/docs
-   - Retail Operations API Docs: http://localhost/retail-ops/docs
+   - If Traefik ingress is configured:
+     - Demo (All Apps): http://localhost:8123/
+     - Physical Operations: http://localhost:8123/physical-ops
+     - Retail Operations: http://localhost:8123/retail-ops
+     - Delivery Dashboard: http://localhost:8123/delivery-dashboard
+     - Delay Dashboard: http://localhost:8123/delay-dashboard
+     - Physical Operations API Docs: http://localhost:8123/physical-ops/docs
+     - Retail Operations API Docs: http://localhost:8123/retail-ops/docs
+   
+   - If using port-forwarding:
+     - Delivery Dashboard: `kubectl port-forward svc/delivery-dashboard 3000:3000` then http://localhost:3000
+     - Delay Dashboard: `kubectl port-forward svc/delay-dashboard 3001:3000` then http://localhost:3001
+     - Demo Portal: `kubectl port-forward svc/demo 3002:3000` then http://localhost:3002
+     - Physical Ops: `kubectl port-forward svc/physical-ops 8003:8003` then http://localhost:8003
+     - Retail Ops: `kubectl port-forward svc/retail-ops 8004:8004` then http://localhost:8004
+
+### Traefik Compatibility
+
+This tutorial requires **Traefik v2.x** for ingress routing (included with k3d v5.6.0).
+- The ingress configurations use `traefik.containo.us` API version
+- If you have Traefik v3.x or a different ingress controller, you'll need to adapt the ingress configurations or use port-forwarding
 
 ### Cleanup
 

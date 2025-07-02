@@ -12,256 +12,298 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Setup script for Curbside Pickup tutorial (Windows PowerShell version)
-#Requires -Version 5.1
+#!/usr/bin/env pwsh
+# Curbside Pickup Tutorial Setup Script
+# This script deploys the Curbside Pickup tutorial applications to your Kubernetes cluster
 
-param(
-    [string]$K3dVersion = "v5.6.0"
-)
-
-# Set strict mode for better error handling
-Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
 
-# Get the directory where this script is located
+# Get script and project directories
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-# Navigate up from scripts -> curbside-pickup -> tutorial -> learning
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $ScriptDir))
+$TutorialDir = Split-Path -Parent $ScriptDir
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $TutorialDir)
 
-# Source shared functions
-. "$ProjectRoot\scripts\setup-functions.ps1"
+# Output functions with color
+function Write-Info($message) {
+    Write-Host "[*] $message" -ForegroundColor Cyan
+}
 
-# Check for Administrator privileges (required for software installation)
-Require-Administrator
+function Write-Success($message) {
+    Write-Host "[+] $message" -ForegroundColor Green
+}
 
-# Display header
-Show-Header -TutorialName "Curbside Pickup"
+function Write-Warning($message) {
+    Write-Host "[!] $message" -ForegroundColor Yellow
+}
 
-# Select deployment mode
-$DeploymentMode = Select-DeploymentMode
-Write-Info "Selected mode: $DeploymentMode"
+function Write-Error($message) {
+    Write-Host "[x] $message" -ForegroundColor Red
+}
 
-# Track whether we can deploy ingresses
-$DeployIngress = "false"
+function Show-Header {
+    Write-Host ""
+    Write-Host "=== Curbside Pickup Tutorial Setup ===" -ForegroundColor Cyan
+    Write-Host ""
+}
 
-if ($DeploymentMode -eq "k3d") {
-    # Step 1: Check kubectl
-    Test-Kubectl
+function Test-Command($command) {
+    $null = Get-Command $command -ErrorAction SilentlyContinue
+    return $?
+}
+
+function Test-Prerequisites {
+    Write-Info "Checking prerequisites..."
     
-    # Step 2: Check for k3d
-    Write-Info "Checking for k3d..."
-    $K3dClusterCreated = $false
-    
-    if (Test-K3d -RequiredVersion $K3dVersion) {
-        # Check for existing clusters
-        Write-Info "Checking for existing k3d clusters..."
-        try {
-            $clusters = k3d cluster list -o json 2>$null | ConvertFrom-Json
-            if ($clusters) {
-                $clusterNames = @($clusters | ForEach-Object { $_.name })
-            }
-            else {
-                $clusterNames = @()
-            }
-        }
-        catch {
-            $clusterNames = @()
-        }
-        
-        # Check specifically for drasi-tutorial cluster
-        if ($clusterNames -contains "drasi-tutorial") {
-            # Found drasi-tutorial cluster - ask what to do
-            Write-Info "Found existing 'drasi-tutorial' k3d cluster"
-            Write-Host ""
-            Write-Host "What would you like to do?" -ForegroundColor Yellow
-            Write-Host "  1. Delete and recreate cluster (default)" -ForegroundColor White
-            Write-Host "  2. Use existing cluster (may have conflicts)" -ForegroundColor White
-            Write-Host "  3. Stop script execution" -ForegroundColor White
-            Write-Host ""
-            
-            $choice = Read-Host "Enter your choice [1-3] (default: 1)"
-            if ([string]::IsNullOrWhiteSpace($choice)) {
-                $choice = "1"
-            }
-            
-            switch ($choice) {
-                "1" {
-                    # Delete and recreate
-                    Write-Info "Deleting existing 'drasi-tutorial' cluster..."
-                    k3d cluster delete drasi-tutorial
-                    Write-Success "Cluster deleted"
-                    
-                    Write-Info "Creating new k3d cluster 'drasi-tutorial'..."
-                    k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
-                    Write-Success "k3d cluster created successfully"
-                    $K3dClusterCreated = $true
-                    $SelectedCluster = "drasi-tutorial"
-                }
-                "2" {
-                    # Use existing cluster
-                    Write-Warning "Using existing cluster may cause conflicts with existing resources"
-                    $SelectedCluster = "drasi-tutorial"
-                    Write-Info "Using existing cluster: drasi-tutorial"
-                }
-                "3" {
-                    Write-Info "Setup cancelled by user"
-                    exit 0
-                }
-                default {
-                    Write-Warning "Invalid choice. Defaulting to option 1 (delete and recreate)"
-                    # Delete and recreate
-                    Write-Info "Deleting existing 'drasi-tutorial' cluster..."
-                    k3d cluster delete drasi-tutorial
-                    Write-Success "Cluster deleted"
-                    
-                    Write-Info "Creating new k3d cluster 'drasi-tutorial'..."
-                    k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
-                    Write-Success "k3d cluster created successfully"
-                    $K3dClusterCreated = $true
-                    $SelectedCluster = "drasi-tutorial"
-                }
-            }
-        }
-        else {
-            # No drasi-tutorial cluster found - just create it
-            Write-Info "Creating k3d cluster 'drasi-tutorial'..."
-            k3d cluster create drasi-tutorial --port "8123:80@loadbalancer"
-            Write-Success "k3d cluster created successfully"
-            $K3dClusterCreated = $true
-            $SelectedCluster = "drasi-tutorial"
-        }
-        
-        # Set kubectl context to the selected cluster
-        Write-Info "Switching kubectl context to k3d cluster..."
-        kubectl config use-context "k3d-$SelectedCluster"
-        
-        # Verify the cluster is accessible
-        Write-Info "Verifying cluster connection..."
-        try {
-            $null = kubectl cluster-info 2>&1
-            Write-Success "Successfully connected to cluster"
-        }
-        catch {
-            Write-Error "Cannot connect to the k3d cluster"
-            Write-Info "Please check if the k3d cluster is running: k3d cluster list"
-            Write-Info "You may need to start it with: k3d cluster start $SelectedCluster"
-            exit 1
-        }
-        
-        # Check if Traefik is available
-        if (Test-Traefik) {
-            $DeployIngress = "true"
-            Write-Success "Traefik is available, ingress will be deployed"
-        }
-        else {
-            Write-Warning "Traefik is not available, will use port-forwarding instead"
-        }
+    # Check kubectl
+    if (-not (Test-Command "kubectl")) {
+        Write-Error "kubectl not found. Install from https://kubernetes.io/docs/tasks/tools/"
+        exit 1
     }
-    else {
-        Write-Error "k3d is required for this tutorial"
+    Write-Success "kubectl: OK"
+    
+    # Check cluster connection
+    try {
+        $null = kubectl cluster-info 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Cluster connection failed"
+        }
+        Write-Success "cluster: OK"
+    }
+    catch {
+        Write-Error "No Kubernetes cluster found. Please connect to a cluster."
         exit 1
     }
     
-    # Step 3: Check for Drasi CLI
-    Test-DrasiCLI
+    # Check drasi CLI
+    if (-not (Test-Command "drasi")) {
+        Write-Error "drasi CLI not found. Install from https://drasi.io/reference/command-line-interface/#get-the-drasi-cli"
+        exit 1
+    }
+    Write-Success "drasi: OK"
+}
+
+function Initialize-Drasi {
+    Write-Info "Checking Drasi installation..."
     
-    # Step 4: Initialize Drasi
-    if (Read-UserChoice "Would you like to initialize Drasi now?") {
-        Initialize-Drasi -MaxAttempts 3
+    # Check if drasi-system namespace exists
+    $namespaceExists = kubectl get namespace drasi-system 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "Drasi is already initialized"
     }
     else {
-        Write-Warning "Skipping Drasi initialization"
-        Write-Info "You will need to run 'drasi init' manually before applying Drasi resources"
+        Write-Warning "Drasi is not initialized"
+        $response = Read-Host "Initialize Drasi now? (y/n)"
+        
+        if ($response -ne 'y') {
+            Write-Warning "Skipping Drasi initialization. You can run 'drasi init' manually later."
+            Write-Warning "Note: Drasi resources deployment will be skipped."
+            return $false
+        }
+        
+        Write-Info "Initializing Drasi..."
+        
+        # Configure drasi environment
+        drasi env kube
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to configure Drasi environment"
+            exit 1
+        }
+        
+        # Try to initialize Drasi (up to 3 attempts)
+        $maxAttempts = 3
+        for ($i = 1; $i -le $maxAttempts; $i++) {
+            Write-Info "Initialization attempt $i of $maxAttempts..."
+            
+            drasi init
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success "Drasi initialized successfully"
+                Start-Sleep -Seconds 10  # Give resources time to create
+                break
+            }
+            
+            if ($i -lt $maxAttempts) {
+                Write-Warning "Initialization failed, cleaning up and retrying..."
+                drasi uninstall -y 2>&1 | Out-Null
+                Start-Sleep -Seconds 5
+            }
+            else {
+                Write-Error "Failed to initialize Drasi after $maxAttempts attempts"
+                exit 1
+            }
+        }
+    }
+    
+    # Verify Drasi is working
+    Write-Info "Verifying Drasi installation..."
+    $null = drasi list source 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Drasi installation failed. Please check logs."
+        exit 1
+    }
+    Write-Success "Drasi is ready"
+    return $true
+}
+
+function Deploy-Databases {
+    Write-Info "Deploying databases..."
+    
+    Set-Location $TutorialDir
+    
+    # Deploy PostgreSQL
+    Write-Info "Deploying PostgreSQL database..."
+    kubectl apply -f retail-ops/k8s/postgres-database.yaml
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to deploy PostgreSQL"
+        exit 1
+    }
+    
+    # Deploy MySQL
+    Write-Info "Deploying MySQL database..."
+    kubectl apply -f physical-ops/k8s/mysql-database.yaml
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to deploy MySQL"
+        exit 1
+    }
+    
+    # Wait for databases to be ready
+    Write-Info "Waiting for PostgreSQL to be ready..."
+    kubectl wait --for=condition=ready pod -l app=postgres --timeout=300s
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "PostgreSQL failed to start"
+        exit 1
+    }
+    Write-Success "PostgreSQL: Ready"
+    
+    Write-Info "Waiting for MySQL to be ready..."
+    kubectl wait --for=condition=ready pod -l app=mysql --timeout=300s
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "MySQL failed to start"
+        exit 1
+    }
+    Write-Success "MySQL: Ready"
+}
+
+function Deploy-Applications {
+    Write-Info "Deploying applications..."
+    
+    Set-Location $TutorialDir
+    
+    # Deploy all applications
+    kubectl apply -f delivery-dashboard/k8s/deployment.yaml
+    kubectl apply -f delay-dashboard/k8s/deployment.yaml
+    kubectl apply -f demo/k8s/deployment.yaml
+    kubectl apply -f physical-ops/k8s/deployment.yaml
+    kubectl apply -f retail-ops/k8s/deployment.yaml
+    
+    # Wait for deployments to be ready
+    Write-Info "Waiting for applications to be ready..."
+    
+    $apps = @("delivery-dashboard", "delay-dashboard", "demo", "physical-ops", "retail-ops")
+    foreach ($app in $apps) {
+        kubectl wait --for=condition=available deployment/$app --timeout=300s
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "${app}: Ready"
+        }
+        else {
+            Write-Error "${app}: Failed to start"
+            exit 1
+        }
     }
 }
-else {
-    # Apps-only mode
-    Write-Info "Apps-only mode selected"
-    Write-Info "This mode assumes you have:"
-    Write-Info "  - A working Kubernetes cluster"
-    Write-Info "  - kubectl configured and connected"
-    Write-Info "  - Drasi already installed"
+
+function Setup-Ingress {
+    Write-Info "Checking for Traefik v2.x ingress controller..."
     
-    # Check kubectl connection
-    Test-Kubectl
+    # Check if Traefik CRDs exist (v2.x uses traefik.containo.us)
+    $null = kubectl get crd ingressroutes.traefik.containo.us 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Traefik v2.x not found. Skipping ingress setup."
+        return $false
+    }
     
-    Write-Warning "Ingress will not be deployed in apps-only mode"
-    Write-Info "You will need to use port-forwarding to access the applications"
+    Write-Info "Attempting to deploy ingress routes..."
+    Set-Location $TutorialDir
+    
+    # Try to deploy ingress routes
+    $ingressFailed = $false
+    kubectl apply -f delivery-dashboard/k8s/ingress.yaml 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $ingressFailed = $true }
+    
+    kubectl apply -f delay-dashboard/k8s/ingress.yaml 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $ingressFailed = $true }
+    
+    kubectl apply -f demo/k8s/ingress.yaml 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $ingressFailed = $true }
+    
+    kubectl apply -f physical-ops/k8s/ingress.yaml 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $ingressFailed = $true }
+    
+    kubectl apply -f retail-ops/k8s/ingress.yaml 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $ingressFailed = $true }
+    
+    if (-not $ingressFailed) {
+        Write-Success "Ingress routes configured"
+        return $true
+    }
+    else {
+        Write-Warning "Some ingress routes failed to deploy"
+        return $false
+    }
 }
 
-Write-Host ""
-Write-Info "Starting application deployment..."
-Write-Host ""
-
-# Deploy databases
-Write-Info "Deploying PostgreSQL database for Retail Operations..."
-kubectl apply -f "$ScriptDir\..\retail-ops\k8s\postgres-database.yaml"
-Wait-ForDeployment -DeploymentName "postgres" -Timeout 300
-
-Write-Info "Deploying MySQL database for Physical Operations..."
-kubectl apply -f "$ScriptDir\..\physical-ops\k8s\mysql-database.yaml"
-Wait-ForDeployment -DeploymentName "mysql" -Timeout 300
-
-# Deploy applications
-Write-Success "Databases are ready. Deploying applications..."
-
-# Deploy dashboards first (no DB dependencies)
-Deploy-App -AppName "Delivery Dashboard" -Directory "$ScriptDir\..\delivery-dashboard\k8s" -DeployIngress $DeployIngress
-Deploy-App -AppName "Delay Dashboard" -Directory "$ScriptDir\..\delay-dashboard\k8s" -DeployIngress $DeployIngress
-Deploy-App -AppName "Demo" -Directory "$ScriptDir\..\demo\k8s" -DeployIngress $DeployIngress
-
-# Deploy apps with DB dependencies
-Deploy-App -AppName "Physical Operations" -Directory "$ScriptDir\..\physical-ops\k8s" -DeployIngress $DeployIngress
-Deploy-App -AppName "Retail Operations" -Directory "$ScriptDir\..\retail-ops\k8s" -DeployIngress $DeployIngress
-
-# Wait for all deployments to be ready
-Write-Info "Waiting for all applications to be ready..."
-$apps = @("delivery-dashboard", "delay-dashboard", "demo", "physical-ops", "retail-ops")
-foreach ($app in $apps) {
-    Wait-ForDeployment -DeploymentName $app
-}
-
-Write-Success "All applications deployed successfully!"
-
-# Show access instructions
-Write-Host ""
-Write-Host "================================================================" -ForegroundColor Green
-Write-Host ""
-
-if ($DeployIngress -eq "true") {
-    Write-Host "Setup Complete! Access your applications at:" -ForegroundColor Green
+function Show-AccessInstructions($useIngress) {
     Write-Host ""
-    Write-Host "  Demo Portal:        http://localhost:8123/" -ForegroundColor Cyan
-    Write-Host "  Retail Operations:  http://localhost:8123/retail-ops" -ForegroundColor Cyan
-    Write-Host "  Physical Operations: http://localhost:8123/physical-ops" -ForegroundColor Cyan
-    Write-Host "  Delivery Dashboard: http://localhost:8123/delivery-dashboard" -ForegroundColor Cyan
-    Write-Host "  Delay Dashboard:    http://localhost:8123/delay-dashboard" -ForegroundColor Cyan
-}
-else {
-    Write-Host "Setup Complete! To access your applications, use port-forwarding:" -ForegroundColor Green
+    Write-Success "Setup complete!"
     Write-Host ""
-    Write-Host "  Demo Portal:" -ForegroundColor Cyan
-    Write-Host "    kubectl port-forward svc/demo 8080:80" -ForegroundColor Yellow
-    Write-Host "    Access at: http://localhost:8080" -ForegroundColor Gray
+    
+    if ($useIngress) {
+        Write-Info "Access the applications at:"
+        Write-Host "  - Demo (All Apps):    http://localhost:8123/"
+        Write-Host "  - Physical Ops:       http://localhost:8123/physical-ops"
+        Write-Host "  - Retail Ops:         http://localhost:8123/retail-ops"
+        Write-Host "  - Delivery Dashboard: http://localhost:8123/delivery-dashboard"
+        Write-Host "  - Delay Dashboard:    http://localhost:8123/delay-dashboard"
+        Write-Host "  - Physical Ops API:   http://localhost:8123/physical-ops/docs"
+        Write-Host "  - Retail Ops API:     http://localhost:8123/retail-ops/docs"
+        Write-Host ""
+        Write-Info "Note: This assumes your k3d cluster was created with port mapping 8123:80"
+    }
+    else {
+        Write-Info "Ingress not configured. Use one of these options:"
+        Write-Host ""
+        Write-Host "Option 1: Configure ingress manually (if you have Traefik or another ingress controller)"
+        Write-Host ""
+        Write-Host "Option 2: Use port-forwarding to access the applications:"
+        Write-Host "  - Delivery Dashboard: kubectl port-forward svc/delivery-dashboard 3000:3000"
+        Write-Host "  - Delay Dashboard:    kubectl port-forward svc/delay-dashboard 3001:3000"
+        Write-Host "  - Demo Portal:        kubectl port-forward svc/demo 3002:3000"
+        Write-Host "  - Physical Ops:       kubectl port-forward svc/physical-ops 8003:8003"
+        Write-Host "  - Retail Ops:         kubectl port-forward svc/retail-ops 8004:8004"
+    }
+    
     Write-Host ""
-    Write-Host "  Other applications can be accessed similarly:" -ForegroundColor Cyan
-    Write-Host "    kubectl port-forward svc/retail-ops 8081:80" -ForegroundColor Yellow
-    Write-Host "    kubectl port-forward svc/physical-ops 8082:80" -ForegroundColor Yellow
-    Write-Host "    kubectl port-forward svc/delivery-dashboard 8083:80" -ForegroundColor Yellow
-    Write-Host "    kubectl port-forward svc/delay-dashboard 8084:80" -ForegroundColor Yellow
+    Write-Info "Next steps:"
+    Write-Host "  1. Deploy Drasi resources: cd tutorial/curbside-pickup/drasi"
+    Write-Host "  2. Apply sources, queries, and reactions"
+    Write-Host ""
 }
 
-Write-Host ""
-Write-Host "Next Steps:" -ForegroundColor Yellow
-Write-Host "  1. Navigate to the drasi directory: cd drasi" -ForegroundColor White
-Write-Host "  2. Apply Drasi sources:" -ForegroundColor White
-Write-Host "     drasi apply -f retail-ops-source.yaml" -ForegroundColor Gray
-Write-Host "     drasi apply -f physical-ops-source.yaml" -ForegroundColor Gray
-Write-Host "  3. Apply Drasi queries and reactions as shown in the tutorial" -ForegroundColor White
-Write-Host ""
-Write-Host "Important: For SignalR to work in the dashboards:" -ForegroundColor Yellow
-Write-Host "  - The SignalR reaction service must be accessible on port 8080" -ForegroundColor White
-Write-Host "  - You may need to run: kubectl port-forward -n drasi-system svc/signalr-gateway 8080:8080" -ForegroundColor Gray
-Write-Host ""
-Write-Host "================================================================" -ForegroundColor Green
-Write-Host ""
+# Main execution
+Show-Header
+Test-Prerequisites
+
+# Try to initialize Drasi but continue even if user declines
+$drasiInitialized = Initialize-Drasi
+
+Deploy-Databases
+Deploy-Applications
+$useIngress = Setup-Ingress
+Show-AccessInstructions $useIngress
+
+# Additional warning if Drasi wasn't initialized
+if (-not $drasiInitialized) {
+    Write-Host ""
+    Write-Warning "Remember: Drasi was not initialized. The tutorial applications are deployed,"
+    Write-Warning "but you'll need to run 'drasi init' manually before deploying Drasi resources."
+}

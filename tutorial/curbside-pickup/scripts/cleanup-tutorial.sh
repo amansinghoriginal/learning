@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright 2025 The Drasi Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,104 +12,93 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Cleanup script for Curbside Pickup tutorial
+#!/bin/bash
+# Curbside Pickup Tutorial Cleanup Script
+# This script removes the Curbside Pickup tutorial applications from your Kubernetes cluster
 
-set -e
+set -euo pipefail
 
-# Get the directory where this script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_ROOT="$( cd "$SCRIPT_DIR/../../.." && pwd )"
+# Colors for output
+INFO='\033[0;36m'      # Cyan
+SUCCESS='\033[0;32m'   # Green
+WARNING='\033[0;33m'   # Yellow
+ERROR='\033[0;31m'     # Red
+NC='\033[0m'           # No Color
 
-# Source shared functions
-source "$PROJECT_ROOT/scripts/setup-functions.sh"
+print_info() {
+    echo -e "${INFO}[*] $1${NC}"
+}
 
-# Display header
-show_header "Curbside Pickup Cleanup"
+print_success() {
+    echo -e "${SUCCESS}[+] $1${NC}"
+}
 
-# Step 1: Delete tutorial Kubernetes resources
-if ask_user "Delete all Curbside Pickup tutorial resources from Kubernetes?"; then
-    print_info "Deleting application deployments and services..."
-    delete_k8s_resources deployment demo delivery-dashboard delay-dashboard physical-ops retail-ops postgres mysql
-    delete_k8s_resources service demo delivery-dashboard delay-dashboard physical-ops retail-ops postgres mysql
+print_warning() {
+    echo -e "${WARNING}[!] $1${NC}"
+}
+
+print_error() {
+    echo -e "${ERROR}[x] $1${NC}"
+}
+
+show_header() {
+    echo
+    echo -e "${INFO}=== Curbside Pickup Tutorial Cleanup ===${NC}"
+    echo
+}
+
+remove_tutorial_resources() {
+    print_info "Removing Curbside Pickup tutorial resources..."
     
-    print_info "Deleting ingresses..."
-    delete_k8s_resources ingress demo-ingress delivery-dashboard-ingress delay-dashboard-ingress physical-ops-ingress retail-ops-ingress
+    # Remove ingress routes if they exist
+    print_info "Removing ingress routes..."
+    kubectl delete ingressroute delivery-dashboard-ingress delay-dashboard-ingress demo-ingress physical-ops-ingress retail-ops-ingress 2>/dev/null || true
+    kubectl delete middleware strip-delivery-dashboard-prefix strip-delay-dashboard-prefix strip-demo-prefix strip-physical-ops-prefix strip-retail-ops-prefix -n traefik 2>/dev/null || true
     
-    print_info "Deleting Traefik middleware resources..."
-    delete_k8s_resources middleware delivery-dashboard-stripprefix delay-dashboard-stripprefix demo-stripprefix physical-ops-stripprefix retail-ops-stripprefix
+    # Remove applications
+    print_info "Removing applications..."
+    kubectl delete deployment delivery-dashboard delay-dashboard demo physical-ops retail-ops 2>/dev/null || true
+    kubectl delete service delivery-dashboard delay-dashboard demo physical-ops retail-ops 2>/dev/null || true
     
-    print_info "Deleting configmaps..."
-    # PostgreSQL related configmaps
-    delete_k8s_resources configmap postgres-init postgres-config retail-ops-init retail-ops-config
+    # Remove databases
+    print_info "Removing PostgreSQL database..."
+    kubectl delete deployment postgres 2>/dev/null || true
+    kubectl delete service postgres 2>/dev/null || true
+    kubectl delete configmap postgres-init-scripts 2>/dev/null || true
+    kubectl delete pvc postgres-pvc 2>/dev/null || true
     
-    # MySQL related configmaps
-    delete_k8s_resources configmap mysql-init mysql-config mysql-cdc-config mysql-permissions mysql-seed-data
+    print_info "Removing MySQL database..."
+    kubectl delete deployment mysql 2>/dev/null || true
+    kubectl delete service mysql 2>/dev/null || true
+    kubectl delete configmap mysql-init-scripts 2>/dev/null || true
+    kubectl delete pvc mysql-pvc 2>/dev/null || true
     
-    # Delete any other configmaps that might have been created
-    kubectl get configmap -o name | grep -E "(dashboard|demo|physical-ops|retail-ops|postgres|mysql)" | xargs -r kubectl delete --ignore-not-found=true
+    # Remove all resources by label
+    print_info "Removing any remaining resources by label..."
+    kubectl delete all -l app=curbside-pickup 2>/dev/null || true
     
-    print_success "Tutorial resources deleted"
-else
-    print_info "Skipping tutorial resource deletion"
+    print_success "Tutorial resources removed"
+}
+
+show_completion() {
+    echo
+    print_success "Curbside Pickup tutorial cleanup complete!"
+    echo
+    print_info "Thank you for trying the Curbside Pickup tutorial."
+    print_info "For more information, visit: https://drasi.io"
+    echo
+}
+
+# Main execution
+show_header
+
+echo -n "This will remove all Curbside Pickup tutorial resources. Continue? (y/n): "
+read -r response
+
+if [[ "$response" != "y" ]]; then
+    print_info "Cleanup cancelled"
+    exit 0
 fi
 
-echo ""
-
-# Step 2: Uninstall Drasi
-if ask_user "Uninstall Drasi from the cluster?"; then
-    print_info "Checking if Drasi is installed..."
-    if kubectl get namespace drasi-system >/dev/null 2>&1; then
-        print_info "Uninstalling Drasi (this will not remove Dapr)..."
-        if drasi uninstall -y; then
-            print_success "Drasi uninstalled successfully"
-        else
-            print_warning "Drasi uninstall failed - it may not be installed or the CLI is not available"
-        fi
-    else
-        print_info "Drasi is not installed"
-    fi
-else
-    print_info "Skipping Drasi uninstallation"
-fi
-
-echo ""
-
-# Step 3: Delete k3d cluster
-if ask_user "Delete k3d cluster?"; then
-    print_info "Checking for k3d clusters..."
-    if command_exists k3d; then
-        # Show available k3d clusters
-        CLUSTERS=$(k3d cluster list -o json 2>/dev/null | jq -r '.[].name' 2>/dev/null || echo "")
-        
-        if [ -z "$CLUSTERS" ]; then
-            print_info "No k3d clusters found"
-        else
-            print_info "Available k3d clusters:"
-            echo "$CLUSTERS" | nl -nrz -w2
-            
-            # Check if drasi-tutorial exists
-            if echo "$CLUSTERS" | grep -q "^drasi-tutorial$"; then
-                if ask_user "Delete k3d cluster 'drasi-tutorial'?"; then
-                    print_info "Deleting k3d cluster 'drasi-tutorial'..."
-                    if k3d cluster delete drasi-tutorial; then
-                        print_success "k3d cluster deleted successfully"
-                    else
-                        print_warning "Failed to delete k3d cluster"
-                    fi
-                fi
-            else
-                print_info "Tutorial cluster not found. You can manually delete any cluster using: k3d cluster delete <name>"
-            fi
-        fi
-    else
-        print_info "k3d is not installed"
-    fi
-else
-    print_info "Skipping k3d cluster deletion"
-fi
-
-echo ""
-print_success "Cleanup complete!"
-echo ""
-print_info "Note: This script does not remove installed CLI tools (kubectl, k3d, drasi)."
-print_info "If you want to remove them, please do so manually."
+remove_tutorial_resources
+show_completion

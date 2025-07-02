@@ -12,183 +12,86 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Cleanup script for Curbside Pickup tutorial (Windows PowerShell version)
-#Requires -Version 5.1
+#!/usr/bin/env pwsh
+# Curbside Pickup Tutorial Cleanup Script
+# This script removes the Curbside Pickup tutorial applications from your Kubernetes cluster
 
-# Set strict mode for better error handling
-Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
 
-# Get the directory where this script is located
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-# Navigate up from scripts -> curbside-pickup -> tutorial -> learning
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $ScriptDir))
-
-# Source shared functions
-. "$ProjectRoot\scripts\setup-functions.ps1"
-
-# Check for Administrator privileges (may be needed for Drasi uninstall)
-if (-not (Test-Administrator)) {
-    Write-Warning "This script may require Administrator privileges for some operations."
-    Write-Info "If any operations fail, please run PowerShell as Administrator."
+# Output functions with color
+function Write-Info($message) {
+    Write-Host "[*] $message" -ForegroundColor Cyan
 }
 
-# Display header
-Clear-Host
-Write-Host ""
-Write-Host "+========================================+" -ForegroundColor Yellow
-Write-Host "|      Curbside Pickup Cleanup           |" -ForegroundColor Yellow
-Write-Host "+========================================+" -ForegroundColor Yellow
-Write-Host ""
+function Write-Success($message) {
+    Write-Host "[+] $message" -ForegroundColor Green
+}
 
-Write-Warning "This script will clean up the Curbside Pickup tutorial resources."
-Write-Host ""
+function Write-Warning($message) {
+    Write-Host "[!] $message" -ForegroundColor Yellow
+}
 
-# Step 1: Delete tutorial resources
-Write-Info "Step 1: Delete Curbside Pickup tutorial resources"
-if (Read-UserChoice "Delete all tutorial Kubernetes resources (deployments, services, etc.)?") {
-    Write-Info "Deleting tutorial resources..."
+function Write-Error($message) {
+    Write-Host "[x] $message" -ForegroundColor Red
+}
+
+function Show-Header {
+    Write-Host ""
+    Write-Host "=== Curbside Pickup Tutorial Cleanup ===" -ForegroundColor Cyan
+    Write-Host ""
+}
+
+function Remove-TutorialResources {
+    Write-Info "Removing Curbside Pickup tutorial resources..."
     
-    # Delete application deployments and services
-    Remove-K8sResourcesByLabel -Label "app=curbside-pickup"
+    # Remove ingress routes if they exist
+    Write-Info "Removing ingress routes..."
+    kubectl delete ingressroute delivery-dashboard-ingress delay-dashboard-ingress demo-ingress physical-ops-ingress retail-ops-ingress 2>&1 | Out-Null
+    kubectl delete middleware strip-delivery-dashboard-prefix strip-delay-dashboard-prefix strip-demo-prefix strip-physical-ops-prefix strip-retail-ops-prefix -n traefik 2>&1 | Out-Null
     
-    # Delete specific resources
-    $resources = @(
-        @{Type="deployment"; Name="postgres"},
-        @{Type="deployment"; Name="mysql"},
-        @{Type="deployment"; Name="retail-ops"},
-        @{Type="deployment"; Name="physical-ops"},
-        @{Type="deployment"; Name="delivery-dashboard"},
-        @{Type="deployment"; Name="delay-dashboard"},
-        @{Type="deployment"; Name="demo"},
-        @{Type="service"; Name="postgres"},
-        @{Type="service"; Name="mysql"},
-        @{Type="service"; Name="retail-ops"},
-        @{Type="service"; Name="physical-ops"},
-        @{Type="service"; Name="delivery-dashboard"},
-        @{Type="service"; Name="delay-dashboard"},
-        @{Type="service"; Name="demo"},
-        @{Type="configmap"; Name="postgres-init"},
-        @{Type="configmap"; Name="mysql-init"},
-        @{Type="ingressroute"; Name="retail-ops"},
-        @{Type="ingressroute"; Name="physical-ops"},
-        @{Type="ingressroute"; Name="delivery-dashboard"},
-        @{Type="ingressroute"; Name="delay-dashboard"},
-        @{Type="ingressroute"; Name="demo"},
-        @{Type="middleware"; Name="retail-ops-strip-prefix"},
-        @{Type="middleware"; Name="physical-ops-strip-prefix"},
-        @{Type="middleware"; Name="delivery-dashboard-strip-prefix"},
-        @{Type="middleware"; Name="delay-dashboard-strip-prefix"}
-    )
+    # Remove applications
+    Write-Info "Removing applications..."
+    kubectl delete deployment delivery-dashboard delay-dashboard demo physical-ops retail-ops 2>&1 | Out-Null
+    kubectl delete service delivery-dashboard delay-dashboard demo physical-ops retail-ops 2>&1 | Out-Null
     
-    foreach ($resource in $resources) {
-        Remove-K8sResources -ResourceType $resource.Type -ResourceName $resource.Name
-    }
+    # Remove databases
+    Write-Info "Removing PostgreSQL database..."
+    kubectl delete deployment postgres 2>&1 | Out-Null
+    kubectl delete service postgres 2>&1 | Out-Null
+    kubectl delete configmap postgres-init-scripts 2>&1 | Out-Null
+    kubectl delete pvc postgres-pvc 2>&1 | Out-Null
     
-    Write-Success "Tutorial resources deleted"
-}
-else {
-    Write-Info "Skipping tutorial resource deletion"
-}
-
-Write-Host ""
-
-# Step 2: Uninstall Drasi (optional)
-Write-Info "Step 2: Uninstall Drasi (optional)"
-Write-Warning "This will remove Drasi from your cluster. Other tutorials using Drasi will be affected."
-
-if (Read-UserChoice "Uninstall Drasi from the cluster?") {
-    Write-Info "Checking if Drasi is installed..."
+    Write-Info "Removing MySQL database..."
+    kubectl delete deployment mysql 2>&1 | Out-Null
+    kubectl delete service mysql 2>&1 | Out-Null
+    kubectl delete configmap mysql-init-scripts 2>&1 | Out-Null
+    kubectl delete pvc mysql-pvc 2>&1 | Out-Null
     
-    if (Test-K8sResource "namespace" "drasi-system") {
-        Write-Info "Uninstalling Drasi..."
-        try {
-            drasi uninstall -y 2>$null
-            Write-Success "Drasi uninstalled successfully"
-        }
-        catch {
-            Write-Error "Failed to uninstall Drasi: $_"
-            Write-Info "You may need to run 'drasi uninstall -y' manually"
-        }
-    }
-    else {
-        Write-Info "Drasi is not installed"
-    }
-}
-else {
-    Write-Info "Skipping Drasi uninstallation"
-}
-
-Write-Host ""
-
-# Step 3: Delete k3d cluster (optional)
-Write-Info "Step 3: Delete k3d cluster (optional)"
-Write-Warning "This will delete the entire k3d cluster and all resources within it."
-
-if (Test-CommandExists "k3d") {
-    # Check for k3d clusters
-    try {
-        $clusters = k3d cluster list -o json 2>$null | ConvertFrom-Json
-        if ($clusters) {
-            $clusterNames = @($clusters | ForEach-Object { $_.name })
-        }
-        else {
-            $clusterNames = @()
-        }
-    }
-    catch {
-        $clusterNames = @()
-    }
+    # Remove all resources by label
+    Write-Info "Removing any remaining resources by label..."
+    kubectl delete all -l app=curbside-pickup 2>&1 | Out-Null
     
-    if ($clusterNames.Count -gt 0) {
-        Write-Info "Found k3d clusters: $($clusterNames -join ', ')"
-        
-        # Check if drasi-tutorial cluster exists
-        if ($clusterNames -contains "drasi-tutorial") {
-            if (Read-UserChoice "Delete the 'drasi-tutorial' k3d cluster?") {
-                Write-Info "Deleting k3d cluster 'drasi-tutorial'..."
-                k3d cluster delete drasi-tutorial
-                Write-Success "k3d cluster deleted successfully"
-            }
-            else {
-                Write-Info "Keeping k3d cluster"
-            }
-        }
-        else {
-            Write-Info "No 'drasi-tutorial' cluster found"
-            
-            # Offer to delete other clusters
-            if ($clusterNames.Count -eq 1) {
-                $clusterName = $clusterNames[0]
-                if (Read-UserChoice "Delete the '$clusterName' k3d cluster?") {
-                    Write-Info "Deleting k3d cluster '$clusterName'..."
-                    k3d cluster delete $clusterName
-                    Write-Success "k3d cluster deleted successfully"
-                }
-            }
-            elseif ($clusterNames.Count -gt 1) {
-                Write-Info "Multiple clusters found. Please use 'k3d cluster delete <name>' to delete specific clusters."
-            }
-        }
-    }
-    else {
-        Write-Info "No k3d clusters found"
-    }
-}
-else {
-    Write-Info "k3d is not installed"
+    Write-Success "Tutorial resources removed"
 }
 
-Write-Host ""
-Write-Host "================================================================" -ForegroundColor Green
-Write-Host ""
-Write-Success "Cleanup complete!"
-Write-Host ""
-Write-Host "Thank you for trying the Curbside Pickup tutorial!" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Learn more about Drasi:" -ForegroundColor Yellow
-Write-Host "   Documentation: https://drasi.io/docs" -ForegroundColor Gray
-Write-Host "   GitHub: https://github.com/drasi-project" -ForegroundColor Gray
-Write-Host ""
-Write-Host "================================================================" -ForegroundColor Green
-Write-Host ""
+function Show-Completion {
+    Write-Host ""
+    Write-Success "Curbside Pickup tutorial cleanup complete!"
+    Write-Host ""
+    Write-Info "Thank you for trying the Curbside Pickup tutorial."
+    Write-Info "For more information, visit: https://drasi.io"
+    Write-Host ""
+}
+
+# Main execution
+Show-Header
+
+$response = Read-Host "This will remove all Curbside Pickup tutorial resources. Continue? (y/n)"
+if ($response -ne 'y') {
+    Write-Info "Cleanup cancelled"
+    exit 0
+}
+
+Remove-TutorialResources
+Show-Completion
