@@ -96,9 +96,15 @@ The setup includes:
 
 ### Setup Steps:
 
-1. Create a k3d cluster with port mapping:
+1. **IMPORTANT: Create a k3d cluster FIRST**
+   
+   The setup script requires a running Kubernetes cluster:
    ```bash
+   # Create k3d cluster with port mapping
    k3d cluster create drasi-tutorial -p 8123:80@loadbalancer
+   
+   # Verify kubectl can connect (should show cluster info)
+   kubectl cluster-info
    ```
    
    **Note**: This creates a cluster with Traefik v2.x included.

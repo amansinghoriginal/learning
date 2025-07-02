@@ -63,17 +63,33 @@ function Test-Prerequisites {
     Write-Success "kubectl: OK"
     
     # Check cluster connection
-    try {
-        $null = kubectl cluster-info 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "Cluster connection failed"
-        }
-        Write-Success "cluster: OK"
-    }
-    catch {
-        Write-Error "No Kubernetes cluster found. Please connect to a cluster."
+    Write-Info "Checking Kubernetes cluster connection..."
+    $job = Start-Job -ScriptBlock { kubectl cluster-info 2>&1 }
+    $completed = Wait-Job -Job $job -Timeout 20
+    
+    if (-not $completed) {
+        Stop-Job -Job $job
+        Remove-Job -Job $job -Force
+        Write-Error "Cannot connect to Kubernetes cluster (timeout after 20 seconds)"
+        Write-Error "Please ensure you have a k3d cluster running:"
+        Write-Error "  k3d cluster create drasi-tutorial -p '8123:80@loadbalancer'"
+        Write-Error ""
+        Write-Error "Or check your kubectl context:"
+        Write-Error "  kubectl config current-context"
         exit 1
     }
+    
+    $result = Receive-Job -Job $job
+    Remove-Job -Job $job
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "No Kubernetes cluster found or connection failed"
+        Write-Error "Please create a k3d cluster first:"
+        Write-Error "  k3d cluster create drasi-tutorial -p '8123:80@loadbalancer'"
+        exit 1
+    }
+    
+    Write-Success "cluster: OK"
     
     # Check drasi CLI
     if (-not (Test-Command "drasi")) {

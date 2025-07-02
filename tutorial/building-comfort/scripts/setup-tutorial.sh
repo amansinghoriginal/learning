@@ -67,8 +67,20 @@ test_prerequisites() {
     print_success "kubectl: OK"
     
     # Check cluster connection
-    if ! kubectl cluster-info >/dev/null 2>&1; then
-        print_error "No Kubernetes cluster found. Please connect to a cluster."
+    print_info "Checking Kubernetes cluster connection..."
+    if ! timeout 20s kubectl cluster-info >/dev/null 2>&1; then
+        if [ $? -eq 124 ]; then
+            print_error "Cannot connect to Kubernetes cluster (timeout after 20 seconds)"
+            print_error "Please ensure you have a k3d cluster running:"
+            print_error "  k3d cluster create drasi-tutorial -p '8123:80@loadbalancer'"
+            echo
+            print_error "Or check your kubectl context:"
+            print_error "  kubectl config current-context"
+        else
+            print_error "No Kubernetes cluster found or connection failed"
+            print_error "Please create a k3d cluster first:"
+            print_error "  k3d cluster create drasi-tutorial -p '8123:80@loadbalancer'"
+        fi
         exit 1
     fi
     print_success "cluster: OK"
