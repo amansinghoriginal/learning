@@ -4,7 +4,6 @@
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/building-comfort",
   "onCreateCommand": "bash ../../.devcontainer/building-comfort/on-create.sh",
   "postCreateCommand": "bash ../../.devcontainer/building-comfort/post-create.sh",
-  "postStartCommand": "code --preview /workspaces/${localWorkspaceFolderBasename}/tutorial/building-comfort/README.md",
   "runArgs": [
     "--privileged",
     "--init"
