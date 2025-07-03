@@ -66,15 +66,29 @@ function Reset-AppImage {
         }
     } | ConvertTo-Json -Depth 10
     
-    try {
-        kubectl patch deployment $App --type merge -p $patchJson
-        Write-Host "[OK] $App reset to official image" -ForegroundColor Green
-        
-        # Restart to ensure fresh pull
-        kubectl rollout restart deployment/$App
+    # Check if deployment exists
+    $ErrorActionPreference = 'SilentlyContinue'
+    kubectl get deployment $App 2>&1 | Out-Null
+    $deploymentExists = $LASTEXITCODE -eq 0
+    $ErrorActionPreference = 'Stop'
+    
+    if (-not $deploymentExists) {
+        Write-Host "[ERROR] Deployment '$App' not found" -ForegroundColor Red
+        return
     }
-    catch {
-        Write-Host "[ERROR] Failed to reset $App $_" -ForegroundColor Red
+    
+    kubectl patch deployment $App --type merge -p $patchJson 2>&1 | Out-String | Write-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Failed to patch deployment $App" -ForegroundColor Red
+        return
+    }
+    Write-Host "[OK] $App reset to official image" -ForegroundColor Green
+    
+    # Restart to ensure fresh pull
+    kubectl rollout restart deployment/$App 2>&1 | Out-String | Write-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Failed to restart deployment $App" -ForegroundColor Red
+        return
     }
 }
 
@@ -95,19 +109,15 @@ Write-Host "Waiting for rollouts to complete..." -ForegroundColor Yellow
 # Wait for rollouts
 if ($AppName -eq "all") {
     foreach ($app in $officialImages.Keys) {
-        try {
-            kubectl rollout status deployment/$app --timeout=60s
-        }
-        catch {
+        kubectl rollout status deployment/$app --timeout=60s 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
             Write-Host "[WARNING] $app rollout may still be in progress" -ForegroundColor Yellow
         }
     }
 }
 else {
-    try {
-        kubectl rollout status deployment/$AppName --timeout=60s
-    }
-    catch {
+    kubectl rollout status deployment/$AppName --timeout=60s 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
         Write-Host "[WARNING] Rollout may still be in progress" -ForegroundColor Yellow
     }
 }

@@ -103,24 +103,28 @@ $patchJson = @{
     }
 } | ConvertTo-Json -Depth 10
 
-try {
-    kubectl patch deployment $AppName --type merge -p $patchJson
-    Write-Host "[OK] Deployment updated" -ForegroundColor Green
-}
-catch {
-    Write-Host "[ERROR] Failed to update deployment: $_" -ForegroundColor Red
+kubectl patch deployment $AppName --type merge -p $patchJson 2>&1 | Out-String | Write-Host
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] Failed to update deployment - deployment '$AppName' may not exist" -ForegroundColor Red
+    Write-Host "Please ensure the tutorial is set up by running: .\setup-tutorial.ps1" -ForegroundColor Yellow
     exit 1
 }
+Write-Host "[OK] Deployment updated" -ForegroundColor Green
 
 # Restart the deployment to ensure fresh container
 Write-Host "Restarting deployment..." -ForegroundColor Yellow
-try {
-    kubectl rollout restart deployment/$AppName
-    kubectl rollout status deployment/$AppName --timeout=60s
-    Write-Host "[OK] Deployment restarted successfully" -ForegroundColor Green
+kubectl rollout restart deployment/$AppName 2>&1 | Out-String | Write-Host
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] Failed to restart deployment" -ForegroundColor Red
+    exit 1
 }
-catch {
+
+kubectl rollout status deployment/$AppName --timeout=60s 2>&1 | Out-String | Write-Host
+if ($LASTEXITCODE -ne 0) {
     Write-Host "[WARN] Deployment restart may still be in progress" -ForegroundColor Yellow
+}
+else {
+    Write-Host "[OK] Deployment restarted successfully" -ForegroundColor Green
 }
 
 Write-Host ""
