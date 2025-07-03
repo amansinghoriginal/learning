@@ -164,9 +164,9 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$DRASI_INITIALIZED" = "false" ]; do
 done
 
 echo "Setup complete! Applications are available at:"
-echo "  Demo (All Apps): http://localhost/"
-echo "  Physical Operations: http://localhost/physical-ops"
-echo "  Retail Operations: http://localhost/retail-ops"
-echo "  Delivery Dashboard: http://localhost/delivery-dashboard"
-echo "  Delay Dashboard: http://localhost/delay-dashboard"
+echo "  Demo (All Apps): http://localhost:8123/"
+echo "  Physical Operations: http://localhost:8123/physical-ops"
+echo "  Retail Operations: http://localhost:8123/retail-ops"
+echo "  Delivery Dashboard: http://localhost:8123/delivery-dashboard"
+echo "  Delay Dashboard: http://localhost:8123/delay-dashboard"
 echo ""

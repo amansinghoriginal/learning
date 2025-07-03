@@ -156,7 +156,7 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$DRASI_INITIALIZED" = "false" ]; do
 done
 
 echo "Setup complete! Applications are available at:"
-echo "  Demo (Combined View): http://localhost:8123/"
+echo "  Demo (All Apps): http://localhost:8123/"
 echo "  Control Panel: http://localhost:8123/control-panel"
 echo "  Dashboard: http://localhost:8123/dashboard"
 echo ""
