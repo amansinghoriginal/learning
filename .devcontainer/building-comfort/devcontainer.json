@@ -1,5 +1,5 @@
 {
-  "name": "Building Comfort",
+  "name": "Building Comfort with Drasi",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/building-comfort",
   "onCreateCommand": "bash ../../.devcontainer/building-comfort/on-create.sh",
@@ -27,9 +27,9 @@
   "remoteEnv": {
     "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
   },
-  "forwardPorts": ["80:8123"],
+  "forwardPorts": [8123],
   "portsAttributes": {
-    "80": {
+    "8123": {
       "label": "Building Comfort Apps",
       "onAutoForward": "notify",
       "protocol": "http"

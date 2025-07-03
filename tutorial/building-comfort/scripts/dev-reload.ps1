@@ -49,13 +49,10 @@ Write-Host "Building Docker image..." -ForegroundColor Yellow
 $imageName = "building-comfort/$AppName-dev:latest"
 
 try {
-    Push-Location "$TutorialDir\$AppName"
-    docker build -t $imageName .
-    Pop-Location
+    docker build -t $imageName "$TutorialDir\$AppName"
     Write-Host "[OK] Docker image built successfully" -ForegroundColor Green
 }
 catch {
-    Pop-Location
     Write-Host "[ERROR] Failed to build Docker image: $_" -ForegroundColor Red
     exit 1
 }

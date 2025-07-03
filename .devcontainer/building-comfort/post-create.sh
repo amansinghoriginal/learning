@@ -156,11 +156,11 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$DRASI_INITIALIZED" = "false" ]; do
 done
 
 echo "Setup complete! Applications are available at:"
-echo "  Demo (Combined View): http://localhost/"
-echo "  Control Panel: http://localhost/control-panel"
-echo "  Dashboard: http://localhost/dashboard"
+echo "  Demo (Combined View): http://localhost:8123/"
+echo "  Control Panel: http://localhost:8123/control-panel"
+echo "  Dashboard: http://localhost:8123/dashboard"
 echo ""
 echo "API Documentation:"
-echo "  Swagger UI: http://localhost/control-panel/docs"
-echo "  ReDoc: http://localhost/control-panel/redoc"
+echo "  Swagger UI: http://localhost:8123/control-panel/docs"
+echo "  ReDoc: http://localhost:8123/control-panel/redoc"
 echo ""

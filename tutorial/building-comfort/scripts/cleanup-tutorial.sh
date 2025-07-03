@@ -18,6 +18,10 @@
 
 set -euo pipefail
 
+# Get script and tutorial directories
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TUTORIAL_DIR="$(dirname "$SCRIPT_DIR")"
+
 # Colors for output
 INFO='\033[0;36m'      # Cyan
 SUCCESS='\033[0;32m'   # Green

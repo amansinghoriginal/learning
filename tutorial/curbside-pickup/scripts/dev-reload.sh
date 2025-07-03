@@ -17,8 +17,12 @@
 
 set -e
 
+# Get script and tutorial directories
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TUTORIAL_DIR="$(dirname "$SCRIPT_DIR")"
+
 if [ $# -eq 0 ]; then
-    echo "Usage: ./dev-reload.sh <app-name>"
+    echo "Usage: $0 <app-name>"
     echo "Available apps: physical-ops, retail-ops, delivery-dashboard, delay-dashboard, demo"
     exit 1
 fi
@@ -34,8 +38,8 @@ if [[ ! " ${VALID_APPS[@]} " =~ " ${APP} " ]]; then
 fi
 
 # Check if directory exists
-if [ ! -d "../$APP" ]; then
-    echo "Error: Directory '$APP' not found"
+if [ ! -d "$TUTORIAL_DIR/$APP" ]; then
+    echo "Error: Directory '$APP' not found in $TUTORIAL_DIR"
     exit 1
 fi
 
@@ -43,7 +47,7 @@ fi
 IMAGE_NAME="ghcr.io/drasi-project/learning/curbside-pickup/$APP:dev"
 
 echo "Building local image for $APP..."
-docker build -t $IMAGE_NAME ../$APP/
+docker build -t $IMAGE_NAME "$TUTORIAL_DIR/$APP/"
 
 echo "Importing image to k3d cluster..."
 k3d image import $IMAGE_NAME -c drasi-tutorial

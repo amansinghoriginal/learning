@@ -1,5 +1,5 @@
 {
-  "name": "Curbside Pickup",
+  "name": "Curbside Pickup with Drasi",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/curbside-pickup",
   "onCreateCommand": "bash ../../.devcontainer/curbside-pickup/on-create.sh",
@@ -27,9 +27,9 @@
   "remoteEnv": {
     "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
   },
-  "forwardPorts": ["80:8123"],
+  "forwardPorts": [8123],
   "portsAttributes": {
-    "80": {
+    "8123": {
       "label": "Curbside Pickup Apps",
       "onAutoForward": "notify",
       "protocol": "http"

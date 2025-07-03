@@ -17,11 +17,15 @@
 
 set -e
 
+# Get script and tutorial directories
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TUTORIAL_DIR="$(dirname "$SCRIPT_DIR")"
+
 if [ $# -eq 0 ]; then
-    echo "Usage: ./reset-images.sh <app-name>"
+    echo "Usage: $0 <app-name>"
     echo "Available apps: physical-ops, retail-ops, delivery-dashboard, delay-dashboard, demo"
     echo ""
-    echo "To reset all apps, run: ./reset-images.sh all"
+    echo "To reset all apps, run: $0 all"
     exit 1
 fi
 
