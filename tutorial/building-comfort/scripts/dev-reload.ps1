@@ -49,7 +49,7 @@ Write-Host "Building Docker image..." -ForegroundColor Yellow
 $imageName = "building-comfort/$AppName-dev:latest"
 
 try {
-    docker build -t $imageName "$TutorialDir\$AppName"
+    docker build -t $imageName (Join-Path $TutorialDir $AppName)
     Write-Host "[OK] Docker image built successfully" -ForegroundColor Green
 }
 catch {

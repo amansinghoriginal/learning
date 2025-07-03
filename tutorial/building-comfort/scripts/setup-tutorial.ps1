@@ -114,7 +114,7 @@ function Initialize-Drasi {
     Write-Info "Initializing Drasi (required)..."
     
     # Check if drasi-system namespace exists
-    $namespaceExists = kubectl get namespace drasi-system 2>&1
+    kubectl get namespace drasi-system 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Success "Drasi is already initialized"
         return
@@ -141,7 +141,7 @@ function Initialize-Drasi {
         
         if ($i -lt $maxAttempts) {
             Write-Warning "Initialization failed, cleaning up and retrying..."
-            drasi uninstall -y 2>&1 | Out-Null
+            drasi uninstall -y 2>$null | Out-Null
             Start-Sleep -Seconds 5
         }
         else {
@@ -152,7 +152,7 @@ function Initialize-Drasi {
     
     # Verify Drasi is working
     Write-Info "Verifying Drasi installation..."
-    $null = drasi list source 2>&1
+    drasi list source 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Drasi installation failed. Please check logs."
         exit 1
@@ -210,7 +210,7 @@ function Setup-Ingress {
     Write-Info "Setting up ingress routes (required)..."
     
     # Check if Traefik CRDs exist (v2.x uses traefik.containo.us)
-    $null = kubectl get crd ingressroutes.traefik.containo.us 2>&1
+    kubectl get crd ingressroutes.traefik.containo.us 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Traefik v2.x not found. The tutorial requires Traefik v2.x ingress controller."
         Write-Host ""

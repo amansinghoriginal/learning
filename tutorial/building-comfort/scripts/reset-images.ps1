@@ -25,7 +25,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-Write-Host "🔄 Resetting images to official versions" -ForegroundColor Cyan
+Write-Host "Resetting images to official versions" -ForegroundColor Cyan
 Write-Host ""
 
 # Define the official images
@@ -40,12 +40,12 @@ function Reset-AppImage {
     param([string]$App)
     
     if (-not $officialImages.ContainsKey($App)) {
-        Write-Host "❌ Unknown app: $App" -ForegroundColor Red
+        Write-Host "[ERROR] Unknown app: $App" -ForegroundColor Red
         return
     }
     
     $image = $officialImages[$App]
-    Write-Host "📦 Resetting $App to: $image" -ForegroundColor Yellow
+    Write-Host "[INFO] Resetting $App to: $image" -ForegroundColor Yellow
     
     # Update the deployment with the official image
     $patchJson = @{
@@ -66,13 +66,13 @@ function Reset-AppImage {
     
     try {
         kubectl patch deployment $App --type merge -p $patchJson
-        Write-Host "✅ $App reset to official image" -ForegroundColor Green
+        Write-Host "[OK] $App reset to official image" -ForegroundColor Green
         
         # Restart to ensure fresh pull
         kubectl rollout restart deployment/$App
     }
     catch {
-        Write-Host "❌ Failed to reset $App $_" -ForegroundColor Red
+        Write-Host "[ERROR] Failed to reset $App $_" -ForegroundColor Red
     }
 }
 
@@ -88,7 +88,7 @@ else {
 }
 
 Write-Host ""
-Write-Host "⏳ Waiting for rollouts to complete..." -ForegroundColor Yellow
+Write-Host "Waiting for rollouts to complete..." -ForegroundColor Yellow
 
 # Wait for rollouts
 if ($AppName -eq "all") {
@@ -97,7 +97,7 @@ if ($AppName -eq "all") {
             kubectl rollout status deployment/$app --timeout=60s
         }
         catch {
-            Write-Host "⚠️  $app rollout may still be in progress" -ForegroundColor Yellow
+            Write-Host "[WARNING] $app rollout may still be in progress" -ForegroundColor Yellow
         }
     }
 }
@@ -106,11 +106,11 @@ else {
         kubectl rollout status deployment/$AppName --timeout=60s
     }
     catch {
-        Write-Host "⚠️  Rollout may still be in progress" -ForegroundColor Yellow
+        Write-Host "[WARNING] Rollout may still be in progress" -ForegroundColor Yellow
     }
 }
 
 Write-Host ""
-Write-Host "🎉 Image reset complete!" -ForegroundColor Green
+Write-Host "Image reset complete!" -ForegroundColor Green
 Write-Host "   Applications are now using official images from GitHub Container Registry." -ForegroundColor Gray
 Write-Host ""
