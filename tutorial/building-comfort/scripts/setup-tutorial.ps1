@@ -197,10 +197,10 @@ function Deploy-Applications {
     foreach ($app in $apps) {
         kubectl wait --for=condition=available deployment/$app --timeout=300s
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "$app: Ready"
+            Write-Success "${app}: Ready"
         }
         else {
-            Write-Error "$app: Failed to start"
+            Write-Error "${app}: Failed to start"
             exit 1
         }
     }
