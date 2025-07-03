@@ -13,7 +13,13 @@
       "extensions": [
         "DrasiProject.drasi",
         "cweijan.vscode-database-client2"
-      ]
+      ],
+      "settings": {
+        "workbench.startupEditor": "readme",
+        "workbench.editorAssociations": {
+          "*.md": "vscode.markdown.preview.editor"
+        }
+      }
     }
   },
   "features": {
