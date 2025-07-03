@@ -147,7 +147,24 @@ function Initialize-Drasi {
             Write-Warning "Initialization failed, cleaning up and retrying..."
             $ErrorActionPreference = 'SilentlyContinue'
             drasi uninstall -y 2>&1 | Out-Null
+            kubectl delete ns drasi-system --force --grace-period=0 2>&1 | Out-Null
             $ErrorActionPreference = 'Stop'
+            
+            # Wait for namespace to be fully deleted
+            Write-Info "Waiting for namespace cleanup..."
+            $waitTime = 0
+            while ($waitTime -lt 30) {
+                $ErrorActionPreference = 'SilentlyContinue'
+                kubectl get ns drasi-system 2>&1 | Out-Null
+                $namespaceExists = $LASTEXITCODE -eq 0
+                $ErrorActionPreference = 'Stop'
+                
+                if (-not $namespaceExists) {
+                    break
+                }
+                Start-Sleep -Seconds 2
+                $waitTime += 2
+            }
             Start-Sleep -Seconds 5
         }
         else {

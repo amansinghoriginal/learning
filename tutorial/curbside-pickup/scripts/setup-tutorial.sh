@@ -141,6 +141,15 @@ initialize_drasi() {
         if [ $i -lt $max_attempts ]; then
             print_warning "Initialization failed, cleaning up and retrying..."
             drasi uninstall -y >/dev/null 2>&1 || true
+            kubectl delete ns drasi-system --force --grace-period=0 >/dev/null 2>&1 || true
+            
+            # Wait for namespace to be fully deleted
+            print_info "Waiting for namespace cleanup..."
+            local wait_time=0
+            while kubectl get ns drasi-system >/dev/null 2>&1 && [ $wait_time -lt 30 ]; do
+                sleep 2
+                wait_time=$((wait_time + 2))
+            done
             sleep 5
         else
             print_error "Failed to initialize Drasi after $max_attempts attempts"
