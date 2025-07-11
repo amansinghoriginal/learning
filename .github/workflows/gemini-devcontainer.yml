@@ -1,0 +1,70 @@
+name: Gemini DevContainer Diagnostic
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-gemini:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🧑‍💻 Setup Git Identity
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          echo "✅ Git configured"
+
+      - name: 🛠 Install DevContainer CLI
+        run: |
+          echo "Installing devcontainer CLI..."
+          npm install -g @devcontainers/cli > devcontainer-cli-install.log 2>&1
+          echo "✅ Installed devcontainer CLI"
+
+      - name: 🚀 Start DevContainer (Default)
+        run: |
+          echo "Launching DevContainer..."
+          devcontainer up --workspace-folder . > devcontainer.log 2> devcontainer.err.log
+          echo "DevContainer exited with code $?"
+          echo "✅ DevContainer launched (or attempted to)"
+        env:
+          HOME: ${{ github.workspace }}
+
+      - name: 🤖 Run Gemini CLI Inside DevContainer
+        run: |
+          echo "Running gemini-cli inside DevContainer..."
+          devcontainer exec --workspace-folder . -- bash -c '
+            mkdir -p gemini
+            echo "Prompt sent to Gemini CLI:" > gemini/prompt.txt
+            echo "You are inside the devcontainer for getting started tutorial launched from Drasi'\''s learning repository..." >> gemini/prompt.txt
+            gemini --yolo --prompt "$(cat gemini/prompt.txt)" > gemini/output.md 2> gemini/error.log
+            echo "Gemini CLI exited with code $?" >> gemini/output.md
+          '
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: 🧠 Detect Current Branch Name
+        id: get_branch
+        run: echo "branch=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+
+      - name: 🌿 Create New Branch and Commit Gemini Output
+        run: |
+          BRANCH_NAME="${{ steps.get_branch.outputs.branch }}_gemini"
+          echo "Creating branch: $BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+          git add gemini/
+          git commit -m "Add Gemini logs and output for '${{ steps.get_branch.outputs.branch }}'"
+          git push origin "$BRANCH_NAME"
+        continue-on-error: true
+
+      - name: 📦 Archive logs and Gemini output as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-logs
+          path: |
+            devcontainer.log
+            devcontainer.err.log
+            devcontainer-cli-install.log
+            gemini/
