@@ -1,0 +1,17 @@
+name: Gemini Hello World
+
+on:
+  workflow_dispatch:
+
+jobs:
+  say-hello:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Hello from Gemini CLI
+        uses: google-gemini/gemini-cli-action@main
+        with:
+          api-key: ${{ secrets.GEMINI_API_KEY }}
+          command: 'Say "Hello world!"'
