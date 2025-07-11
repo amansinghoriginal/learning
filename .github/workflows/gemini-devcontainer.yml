@@ -25,14 +25,19 @@ jobs:
 
             echo "✅ Now running inside the dev container."
 
-            # 1. Setup Git Identity inside the container
+            # 1. Install the official Gemini CLI using npm
+            echo "🛠️ Installing Gemini CLI via npm..."
+            # The -g flag installs the package globally, making the `gemini` command available.
+            npm install -g @google/gemini-cli
+
+            # 2. Setup Git Identity inside the container
             echo "🧑‍💻 Setting up Git..."
             git config --global user.name "gemini-ci-bot"
             git config --global user.email "gemini-ci-bot@users.noreply.github.com"
             # The workspace is mounted, but we need to tell git it's a safe directory
             git config --global --add safe.directory "$PWD"
             
-            # 2. Create the prompt for Gemini
+            # 3. Create the prompt for Gemini
             echo "📝 Creating Gemini prompt..."
             mkdir -p gemini
             TUTORIAL_URL="https://drasi.io/getting-started/"
@@ -52,14 +57,14 @@ jobs:
             Please begin. Your entire session log will be saved.
             EOF
 
-            # 3. Run Gemini to validate the tutorial
+            # 4. Run Gemini to validate the tutorial
             echo "🤖 Running Gemini..."
             # The GEMINI_API_KEY is passed in from the job's environment
             gemini --yolo --prompt-file "gemini/prompt.txt" > "gemini/output.md" 2> "gemini/error.log"
             GEMINI_EXIT_CODE=$?
             echo -e "\n\n---\nGemini CLI exited with code: $GEMINI_EXIT_CODE." >> gemini/output.md
             
-            # 4. Create a new branch and commit the results
+            # 5. Create a new branch and commit the results
             echo "🌿 Committing results to a new branch..."
             CURRENT_BRANCH="${GITHUB_REF##*/}"
             BRANCH_NAME="${CURRENT_BRANCH}_gemini"
