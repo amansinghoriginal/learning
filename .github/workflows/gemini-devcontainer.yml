@@ -23,18 +23,23 @@ jobs:
             set -ex
 
             echo "✅ Now running inside the dev container."
+            
+            # 1. Explicitly export the API key to ensure it's available in this shell session.
+            # This is the key fix for the authentication error.
+            echo "🔐 Exporting Gemini API Key..."
+            export GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
-            # 1. Install the official Gemini CLI using npm
+            # 2. Install the official Gemini CLI using npm
             echo "🛠️ Installing Gemini CLI via npm..."
             npm install -g @google/gemini-cli
 
-            # 2. Setup Git Identity inside the container
+            # 3. Setup Git Identity inside the container
             echo "🧑‍💻 Setting up Git..."
             git config --global user.name "gemini-ci-bot"
             git config --global user.email "gemini-ci-bot@users.noreply.github.com"
             git config --global --add safe.directory "$PWD"
             
-            # 3. Create the prompt for Gemini
+            # 4. Create the prompt for Gemini
             echo "📝 Creating Gemini prompt..."
             mkdir -p gemini
             TUTORIAL_URL="https://drasi.io/getting-started/"
@@ -55,7 +60,7 @@ jobs:
             EOF
             )
 
-            # 4. Run Gemini to validate the tutorial with maximum debugging
+            # 5. Run Gemini to validate the tutorial with maximum debugging
             echo "🤖 Running Gemini with enhanced debugging..."
             # We add the --debug flag for verbose output from the CLI itself.
             # We also temporarily disable 'exit on error' to capture the exit code and all output.
@@ -80,7 +85,7 @@ jobs:
               exit $GEMINI_EXIT_CODE
             fi
             
-            # 5. Create a new branch and commit the results
+            # 6. Create a new branch and commit the results
             echo "🌿 Committing results to a new branch..."
             CURRENT_BRANCH="${GITHUB_REF##*/}"
             BRANCH_NAME="${CURRENT_BRANCH}_gemini"
@@ -94,9 +99,6 @@ jobs:
               git push origin "$BRANCH_NAME"
               echo "✅ Pushed results to branch $BRANCH_NAME."
             fi
-        env:
-          # This secret is securely passed into the dev container environment
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: 📦 Archive Diagnostic Report
         # This step runs back on the host runner after the dev container job is finished
