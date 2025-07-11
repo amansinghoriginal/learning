@@ -14,8 +14,8 @@ jobs:
 
       - name: 🤖 Run Commands in Dev Container
         # This action handles the setup and execution within the dev container
-        # Updated to a newer version to ensure compatibility and correct parameter handling
-        uses: devcontainers/ci@v0.6
+        # Corrected to the stable v0.3 release of the action
+        uses: devcontainers/ci@v0.3
         with:
           # The `runCmd` parameter specifies the shell commands to execute
           # inside the fully-initialized dev container.
