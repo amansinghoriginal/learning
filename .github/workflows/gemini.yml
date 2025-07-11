@@ -1,4 +1,4 @@
-name: Gemini Hello World
+name: Gemini Hello World Debug
 
 on:
   workflow_dispatch:
@@ -7,7 +7,40 @@ jobs:
   hello:
     runs-on: ubuntu-latest
     steps:
-      - name: Install and run Gemini CLI
+      - name: Print debug info about environment
+        run: |
+          echo "🧪 Printing working directory:"
+          pwd
+          echo "🧪 Node version:"
+          node -v || echo "Node not found"
+          echo "🧪 NPM version:"
+          npm -v || echo "NPM not found"
+          echo "🧪 Checking environment variables (safe list):"
+          env | grep -E 'GEMINI|CI|GITHUB' || true
+
+      - name: Check if secret is empty
+        run: |
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "❌ GEMINI_API_KEY is EMPTY or NOT SET"
+            exit 1
+          else
+            echo "✅ GEMINI_API_KEY is present"
+          fi
+
+      - name: Install and verify Gemini CLI
+        run: |
+          npm install -g @google/gemini-cli@latest
+          which gemini
+          gemini --version || echo "Version command failed"
+
+      - name: Run Gemini CLI directly (manual test)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          echo "Running Gemini CLI with prompt..."
+          gemini --yolo --prompt "Say 'Hello world!'" || echo "❌ Manual Gemini CLI failed"
+
+      - name: Run official Gemini CLI Action
         uses: google-gemini/gemini-cli-action@main
         with:
           prompt: 'Say "Hello world!"'
