@@ -41,7 +41,7 @@ jobs:
             echo "📝 Creating Gemini prompt..."
             mkdir -p gemini
             TUTORIAL_URL="https://drasi.io/getting-started/"
-            cat <<-EOF > gemini/prompt.txt
+            PROMPT_CONTENT=$(cat <<-EOF
             You are an expert QA engineer inside a devcontainer. Your task is to meticulously validate the Drasi 'Getting Started' tutorial.
             The full tutorial is available at $TUTORIAL_URL.
 
@@ -56,11 +56,13 @@ jobs:
 
             Please begin. Your entire session log will be saved.
             EOF
+            )
 
             # 4. Run Gemini to validate the tutorial
             echo "🤖 Running Gemini..."
-            # The GEMINI_API_KEY is passed in from the job's environment
-            gemini --yolo --prompt-file "gemini/prompt.txt" > "gemini/output.md" 2> "gemini/error.log"
+            # The GEMINI_API_KEY is passed in from the job's environment.
+            # Using --prompt with the variable content, and --yolo for non-interactive execution.
+            gemini --yolo --prompt "$PROMPT_CONTENT" > "gemini/output.md" 2> "gemini/error.log"
             GEMINI_EXIT_CODE=$?
             echo -e "\n\n---\nGemini CLI exited with code: $GEMINI_EXIT_CODE." >> gemini/output.md
             
