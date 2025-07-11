@@ -14,27 +14,24 @@ jobs:
 
       - name: 🤖 Run Commands in Dev Container
         # This action handles the setup and execution within the dev container
-        # Corrected to the stable v0.3 release of the action
         uses: devcontainers/ci@v0.3
         with:
           # The `runCmd` parameter specifies the shell commands to execute
           # inside the fully-initialized dev container.
           runCmd: |
-            # Exit immediately if a command fails
-            set -e
+            # Exit immediately if a command fails ('e') and print each command ('x')
+            set -ex
 
             echo "✅ Now running inside the dev container."
 
             # 1. Install the official Gemini CLI using npm
             echo "🛠️ Installing Gemini CLI via npm..."
-            # The -g flag installs the package globally, making the `gemini` command available.
             npm install -g @google/gemini-cli
 
             # 2. Setup Git Identity inside the container
             echo "🧑‍💻 Setting up Git..."
             git config --global user.name "gemini-ci-bot"
             git config --global user.email "gemini-ci-bot@users.noreply.github.com"
-            # The workspace is mounted, but we need to tell git it's a safe directory
             git config --global --add safe.directory "$PWD"
             
             # 3. Create the prompt for Gemini
@@ -58,13 +55,30 @@ jobs:
             EOF
             )
 
-            # 4. Run Gemini to validate the tutorial
-            echo "🤖 Running Gemini..."
-            # The GEMINI_API_KEY is passed in from the job's environment.
-            # Using --prompt with the variable content, and --yolo for non-interactive execution.
-            gemini --yolo --prompt "$PROMPT_CONTENT" > "gemini/output.md" 2> "gemini/error.log"
+            # 4. Run Gemini to validate the tutorial with maximum debugging
+            echo "🤖 Running Gemini with enhanced debugging..."
+            # We add the --debug flag for verbose output from the CLI itself.
+            # We also temporarily disable 'exit on error' to capture the exit code and all output.
+            set +e
+            GEMINI_FULL_OUTPUT=$(echo "$PROMPT_CONTENT" | gemini --yolo --debug 2>&1)
             GEMINI_EXIT_CODE=$?
-            echo -e "\n\n---\nGemini CLI exited with code: $GEMINI_EXIT_CODE." >> gemini/output.md
+            set -e
+
+            # Print all captured output to the main log for immediate inspection
+            echo "--- START: Gemini CLI Full Output ---"
+            echo "$GEMINI_FULL_OUTPUT"
+            echo "--- END: Gemini CLI Full Output ---"
+            echo "Gemini CLI exited with code: $GEMINI_EXIT_CODE."
+
+            # Save the captured output to files for the artifact
+            echo "$GEMINI_FULL_OUTPUT" > "gemini/output.md"
+            echo "$GEMINI_FULL_OUTPUT" > "gemini/error.log" # Save full log here too for debugging
+            
+            # Explicitly fail the job if Gemini failed
+            if [ $GEMINI_EXIT_CODE -ne 0 ]; then
+              echo "❌ Gemini CLI failed."
+              exit $GEMINI_EXIT_CODE
+            fi
             
             # 5. Create a new branch and commit the results
             echo "🌿 Committing results to a new branch..."
