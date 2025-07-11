@@ -1,145 +1,88 @@
-name: Gemini DevContainer Diagnostic
+name: Gemini DevContainer Diagnostic (CI-Integrated)
 
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
-  run-gemini-diagnostic:
+  run-in-devcontainer:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: ⬇️ Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 🧑‍💻 Setup Git Identity
-        run: |
-          git config --global user.name "gemini-ci-bot"
-          git config --global user.email "gemini-ci-bot@users.noreply.github.com"
-          echo "✅ Git configured"
+      - name: 🤖 Run Commands in Dev Container
+        # This action handles the setup and execution within the dev container
+        uses: devcontainers/ci@v0.3
+        with:
+          # The folder containing the .devcontainer directory
+          workspaceFolder: .
+          # The command to run inside the container. We use a multi-line script.
+          runCmd: |
+            # Exit immediately if a command fails
+            set -e
 
-      - name: 🛠 Install Prerequisites (DevContainer CLI & jq)
-        run: |
-          sudo apt-get update && sudo apt-get install -y jq
-          echo "Installing devcontainer CLI..."
-          npm install -g @devcontainers/cli > devcontainer-cli-install.log 2>&1
-          echo "✅ Installed devcontainer CLI and jq"
+            echo "✅ Now running inside the dev container."
 
-      - name: 📝 Create Gemini Prompt
-        run: |
-          echo "Creating a detailed prompt for Gemini..."
-          # This prompt gives Gemini clear instructions on how to proceed.
-          # In a more advanced version, you could use a script to scrape the live
-          # tutorial content from your website.
-          TUTORIAL_URL="https://drasi.io/getting-started/"
-          PROMPT_CONTENT=$(cat <<-EOF
-          You are an expert QA engineer inside a devcontainer. Your task is to meticulously validate the Drasi 'Getting Started' tutorial.
-          The full tutorial is available at $TUTORIAL_URL.
-
-          Your mission is to:
-          1. Act as a user following the tutorial step-by-step.
-          2. The devcontainer is already set up, and the repository is at '/workspaces/learning'. The tutorial itself starts from the 'tutorial/getting-started' directory. Please `cd` to that directory first before running any tutorial commands.
-          3. Execute every command exactly as it appears in the tutorial.
-          4. For each step, log the command you are about to run.
-          5. Capture the complete, unaltered output of each command.
-          6. If a command fails or produces an error, describe the issue in detail.
-          7. At the end, provide a summary of your findings in a Markdown report.
-
-          Please begin. Your entire session log will be saved.
-          EOF
-          )
-          
-          # This directory is created on the host runner. Since the workspace is mounted
-          # into the container, this folder will be available inside.
-          mkdir -p gemini
-          echo "$PROMPT_CONTENT" > gemini/prompt.txt
-          echo "✅ Prompt created at gemini/prompt.txt"
-
-      - name: 🚀 Start DevContainer
-        run: |
-          echo "Launching DevContainer..."
-          # Use --remove-existing-container to ensure a clean start for each run
-          devcontainer up --workspace-folder . --remove-existing-container > devcontainer.log 2> devcontainer.err.log
-          echo "DevContainer 'up' command exited with code $?"
-          
-          # Verify that the devcontainer started successfully by checking the JSON output
-          if ! jq -e '.outcome == "success"' devcontainer.log > /dev/null; then
-            echo "❌ DevContainer failed to start."
-            echo "--- devcontainer.log ---"
-            cat devcontainer.log
-            echo "--- devcontainer.err.log ---"
-            cat devcontainer.err.log
-            exit 1
-          fi
-          echo "✅ DevContainer is up and running."
-        env:
-          # The HOME env var can be important for the devcontainer CLI to find its state
-          HOME: ${{ github.workspace }}
-
-      - name: 🤖 Run Gemini CLI Inside DevContainer
-        run: |
-          echo "Running gemini-cli inside DevContainer..."
-          # We execute a shell script inside the container.
-          # The key is to first `cd` to the repository root (`/workspaces/learning`)
-          # so that the output files are created in the correct location relative to the mount.
-          devcontainer exec --workspace-folder . -- bash -c '
-            # Change to the repo root to ensure outputs are placed correctly.
-            cd /workspaces/learning
+            # 1. Setup Git Identity inside the container
+            echo "🧑‍💻 Setting up Git..."
+            git config --global user.name "gemini-ci-bot"
+            git config --global user.email "gemini-ci-bot@users.noreply.github.com"
+            # The workspace is mounted, but we need to tell git it's a safe directory
+            git config --global --add safe.directory "$PWD"
             
-            echo "--- Running Gemini ---"
-            # Assuming gemini-cli is installed and on the PATH in the devcontainer.
-            # We use --prompt-file to pass the prompt we created earlier.
-            # The output is redirected to the gemini folder at the repo root.
+            # 2. Create the prompt for Gemini
+            echo "📝 Creating Gemini prompt..."
+            mkdir -p gemini
+            TUTORIAL_URL="https://drasi.io/getting-started/"
+            cat <<-EOF > gemini/prompt.txt
+            You are an expert QA engineer inside a devcontainer. Your task is to meticulously validate the Drasi 'Getting Started' tutorial.
+            The full tutorial is available at $TUTORIAL_URL.
+
+            Your mission is to:
+            1. Act as a user following the tutorial step-by-step.
+            2. You are already inside the correct devcontainer. The repository is at the current working directory. The tutorial itself starts from the 'tutorial/getting-started' directory. Please `cd` to that directory first before running any tutorial commands.
+            3. Execute every command exactly as it appears in the tutorial.
+            4. For each step, log the command you are about to run.
+            5. Capture the complete, unaltered output of each command.
+            6. If a command fails or produces an error, describe the issue in detail.
+            7. At the end, provide a summary of your findings in a Markdown report.
+
+            Please begin. Your entire session log will be saved.
+            EOF
+
+            # 3. Run Gemini to validate the tutorial
+            echo "🤖 Running Gemini..."
+            # The GEMINI_API_KEY is passed in from the job's environment
             gemini --yolo --prompt-file "gemini/prompt.txt" > "gemini/output.md" 2> "gemini/error.log"
-            
             GEMINI_EXIT_CODE=$?
-            echo "Gemini CLI exited with code $GEMINI_EXIT_CODE"
-            
-            # Append exit code to the main output for diagnostics
             echo -e "\n\n---\nGemini CLI exited with code: $GEMINI_EXIT_CODE." >> gemini/output.md
-          '
+            
+            # 4. Create a new branch and commit the results
+            echo "🌿 Committing results to a new branch..."
+            CURRENT_BRANCH="${GITHUB_REF##*/}"
+            BRANCH_NAME="${CURRENT_BRANCH}_gemini"
+            git checkout -b "$BRANCH_NAME"
+            git add gemini/
+            
+            if git diff-index --quiet HEAD; then
+              echo "No changes to commit."
+            else
+              git commit -m "Add Gemini diagnostic report for '$CURRENT_BRANCH'"
+              git push origin "$BRANCH_NAME"
+              echo "✅ Pushed results to branch $BRANCH_NAME."
+            fi
         env:
+          # This secret is securely passed into the dev container environment
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          HOME: ${{ github.workspace }}
 
-      - name: 🌿 Create New Branch and Commit Gemini Output
-        run: |
-          CURRENT_BRANCH="${GITHUB_REF##*/}"
-          BRANCH_NAME="${CURRENT_BRANCH}_gemini"
-          echo "Creating branch: $BRANCH_NAME"
-          
-          git checkout -b "$BRANCH_NAME"
-          
-          # Add all generated files and logs for a complete record
-          git add devcontainer.log devcontainer.err.log devcontainer-cli-install.log
-          git add gemini/
-          
-          # Check if there are any changes to commit to avoid empty commits
-          if git diff-index --quiet HEAD; then
-            echo "No changes to commit."
-          else
-            git commit -m "Add Gemini diagnostic report for '$CURRENT_BRANCH'"
-            git push origin "$BRANCH_NAME"
-          fi
-        continue-on-error: true # Continue even if push fails (e.g., permissions)
-
-      - name: 📦 Archive Logs and Output
-        # This step will always run to ensure you get logs even if a step fails.
+      - name: 📦 Archive Diagnostic Report
+        # This step runs back on the host runner after the dev container job is finished
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gemini-diagnostic-report
           path: |
-            devcontainer.log
-            devcontainer.err.log
-            devcontainer-cli-install.log
             gemini/
           if-no-files-found: warn
-
-      - name: ⏹️ Stop DevContainer
-        # This step will always run to clean up resources.
-        if: always()
-        run: |
-          echo "Stopping DevContainer..."
-          devcontainer down --workspace-folder .
-          echo "✅ DevContainer stopped."
