@@ -1,0 +1,51 @@
+{
+  "name": "Copilot Curbside Pickup",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/curbside-pickup",
+  "onCreateCommand": "bash ../../.devcontainer/curbside-pickup/on-create.sh",
+  "postCreateCommand": "bash ../../.devcontainer/curbside-pickup/post-create.sh && npm install -g @github/copilot @google/gemini-cli && npx -y playwright install --with-deps chromium",
+  "runArgs": [
+    "--privileged",
+    "--init",
+    "--ipc=host"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "DrasiProject.drasi",
+        "cweijan.vscode-database-client2"
+      ]
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "27",
+      "moby": "false"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+        "version": "22"
+    }
+  },
+  "containerEnv": {
+    "LANG": "en_US.UTF-8",
+    "LANGUAGE": "en_US:en",
+    "LC_ALL": "en_US.UTF-8"
+  },
+  "remoteEnv": {
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+  },
+  "forwardPorts": [8123],
+  "portsAttributes": {
+    "8123": {
+      "label": "Curbside Pickup Apps",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    }
+  },
+  
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  }
+}
