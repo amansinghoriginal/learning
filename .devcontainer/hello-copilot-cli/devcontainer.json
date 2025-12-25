@@ -1,0 +1,47 @@
+{
+  "name": "Hello Copilot CLI",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/getting-started",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "onCreateCommand": "sed -i 's/\r$//' ../../.devcontainer/post-create.sh && sed -i  's/\r$//' ../../.devcontainer/on-create.sh && bash ../../.devcontainer/on-create.sh",
+  "postCreateCommand": "bash ../../.devcontainer/post-create.sh",
+  "postStartCommand": "bash ../../.devcontainer/post-start.sh && npm install -g @github/copilot @google/gemini-cli && npx -y playwright install --with-deps chromium",
+	"runArgs": [
+	  "--privileged",
+	  "--init",
+      "--ipc=host"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/rio/features/k3d:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+        "version": "22"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {},
+      "extensions": [
+        "ckolkman.vscode-postgres"
+      ]
+    }
+  },
+  "remoteEnv": {
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",
+    "PGHOST": "localhost",
+    "PGDATABASE": "hello-world",
+    "PGPORT": "5432",
+    "PGUSER" : "test",
+    "PGPASSWORD" : "test"
+  },
+  "portsAttributes": {
+    "5432": {
+    "label": "postgres",
+    "onAutoForward": "silent"
+    },
+    "8081": {
+    "label": "k3s",
+    "onAutoForward": "silent"
+    }
+  }
+}
