@@ -2,8 +2,8 @@
   "name": "Copilot Curbside Pickup",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/curbside-pickup",
-  "onCreateCommand": "bash ../../.devcontainer/curbside-pickup/on-create.sh",
-  "postCreateCommand": "bash ../../.devcontainer/curbside-pickup/post-create.sh && npm install -g @github/copilot @google/gemini-cli && npx -y playwright install --with-deps chromium",
+  "onCreateCommand": "bash ../../.devcontainer/copilot-curbside-pickup/on-create.sh",
+  "postCreateCommand": "bash ../../.devcontainer/copilot-curbside-pickup/post-create.sh",
   "runArgs": [
     "--privileged",
     "--init",

@@ -1,0 +1,43 @@
+name: Agentic Tutorial Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      docs_repo_branch:
+        description: 'Branch from Drasi docs repo to use'
+        default: 'main'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Checkout external public repo
+        uses: actions/checkout@v4
+        with:
+          repository: drasi-project/docs
+          ref: ${{ inputs.docs_repo_branch }}
+          path: drasi-docs
+
+      - name: Copy tutorial docs and prompt into the workspace
+        run: |
+          mkdir -p tutorial/getting-started/tutorial-docs
+          cp -r drasi-docs/docs/content/getting-started/* tutorial/getting-started/tutorial-docs
+          cp .github/prompts/tutorial-evaluation.md tutorial/getting-started/prompt.md
+
+      - name: Copilot-CLI inside Devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/hello-copilot-cli/devcontainer.json
+          push: never
+          runCmd: |
+            copilot -p "$(cat prompt.md)" --allow-all-tools --allow-all-paths --model gemini-3-pro-preview
+
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evaluation-results
+          path: tutorial/getting-started/evaluation-*/

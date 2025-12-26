@@ -163,6 +163,18 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ "$DRASI_INITIALIZED" = "false" ]; do
     ATTEMPT=$((ATTEMPT + 1))
 done
 
+if [ "$GITHUB_ACTIONS" = "true" ] && [ "$CODESPACES" != "true" ]; then
+    echo "Detected GitHub Actions environment. Installing evaluation tools..."
+    
+    echo "Installing global Node.js tools..."
+    sudo npm install -g @github/copilot
+    sudo npm install -g playwright
+
+    # Install Playwright browsers
+    echo "Installing Playwright browsers..."
+    sudo npx playwright install --with-deps chromium
+fi
+
 echo "Setup complete! Applications are available at:"
 echo "  Demo (All Apps): http://localhost:8123/"
 echo "  Physical Operations: http://localhost:8123/physical-ops"

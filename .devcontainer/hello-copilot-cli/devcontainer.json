@@ -2,9 +2,9 @@
   "name": "Hello Copilot CLI",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/tutorial/getting-started",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
-  "onCreateCommand": "sed -i 's/\r$//' ../../.devcontainer/post-create.sh && sed -i  's/\r$//' ../../.devcontainer/on-create.sh && bash ../../.devcontainer/on-create.sh",
-  "postCreateCommand": "bash ../../.devcontainer/post-create.sh",
-  "postStartCommand": "bash ../../.devcontainer/post-start.sh && npm install -g @github/copilot @google/gemini-cli && npx -y playwright install --with-deps chromium",
+  "onCreateCommand": "sed -i 's/\r$//' ../../.devcontainer/hello-copilot-cli/on-create.sh && sed -i  's/\r$//' ../../.devcontainer/hello-copilot-cli/post-create.sh && sed -i  's/\r$//' ../../.devcontainer/hello-copilot-cli/post-start.sh && bash ../../.devcontainer/hello-copilot-cli/on-create.sh",
+  "postCreateCommand": "bash ../../.devcontainer/hello-copilot-cli/post-create.sh",
+  "postStartCommand": "bash ../../.devcontainer/hello-copilot-cli/post-start.sh",
 	"runArgs": [
 	  "--privileged",
 	  "--init",
