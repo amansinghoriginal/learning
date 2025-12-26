@@ -1,0 +1,113 @@
+name: Agentic Tutorial Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      tutorial:
+        description: 'Tutorial to evaluate'
+        type: choice
+        options:
+          - getting-started
+          - curbside-pickup
+          - building-comfort
+        default: 'getting-started'
+      docs_repo:
+        description: 'Docs repository to use (owner/repo format)'
+        default: 'drasi-project/docs'
+      docs_repo_branch:
+        description: 'Branch from docs repo to use'
+        default: 'main'
+      model:
+        description: 'AI model to use for evaluation'
+        default: 'gemini-3-pro-preview'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set tutorial config
+        id: config
+        run: |
+          case "${{ inputs.tutorial }}" in
+            getting-started)
+              echo "devcontainer=.devcontainer/devcontainer.json" >> $GITHUB_OUTPUT
+              echo "docs_path=docs/content/getting-started" >> $GITHUB_OUTPUT
+              echo "learning_path=tutorial/getting-started" >> $GITHUB_OUTPUT
+              ;;
+            curbside-pickup)
+              echo "devcontainer=.devcontainer/curbside-pickup/devcontainer.json" >> $GITHUB_OUTPUT
+              echo "docs_path=docs/content/tutorials/curbside-pickup" >> $GITHUB_OUTPUT
+              echo "learning_path=tutorial/curbside-pickup" >> $GITHUB_OUTPUT
+              ;;
+            building-comfort)
+              echo "devcontainer=.devcontainer/building-comfort/devcontainer.json" >> $GITHUB_OUTPUT
+              echo "docs_path=docs/content/tutorials/building-comfort" >> $GITHUB_OUTPUT
+              echo "learning_path=tutorial/building-comfort" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "::error::Unknown tutorial: ${{ inputs.tutorial }}"
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.docs_repo }}
+          ref: ${{ inputs.docs_repo_branch }}
+          path: drasi-docs
+
+      - name: Copy tutorial docs and prompt into the workspace
+        run: |
+          mkdir -p ${{ steps.config.outputs.learning_path }}/tutorial-docs
+          cp -r drasi-docs/${{ steps.config.outputs.docs_path }}/* ${{ steps.config.outputs.learning_path }}/tutorial-docs
+          cp .github/prompts/tutorial-evaluation.md ${{ steps.config.outputs.learning_path }}/prompt.md
+
+      - name: Copilot-CLI inside Devcontainer
+        uses: devcontainers/ci@v0.3
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT_TOKEN }}
+        with:
+          configFile: ${{ steps.config.outputs.devcontainer }}
+          push: never
+          runCmd: |
+            copilot -p "$(cat prompt.md)" --allow-all-tools --allow-all-paths --model ${{ inputs.model }}
+
+      - name: Check evaluation status
+        if: always()
+        run: |
+          REPORT=$(find ${{ steps.config.outputs.learning_path }} -name "report.md" -path "*/evaluation-*/*" | head -1)
+
+          if [ -z "$REPORT" ]; then
+            echo "::error::No report.md found in evaluation directory"
+            exit 1
+          fi
+
+          echo "Found report: $REPORT"
+          echo "--- Report Contents ---"
+          cat "$REPORT"
+          echo "--- End Report ---"
+
+          if grep -q "## STATUS: SUCCESS" "$REPORT"; then
+            echo "::notice::Tutorial evaluation PASSED"
+            exit 0
+          elif grep -q "## STATUS: FAILURE" "$REPORT"; then
+            echo "::error::Tutorial evaluation FAILED"
+            exit 1
+          else
+            echo "::error::No STATUS found in report.md"
+            exit 1
+          fi
+
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evaluation-results-${{ inputs.tutorial }}
+          path: |
+            ${{ steps.config.outputs.learning_path }}/evaluation-*/
+            ${{ steps.config.outputs.learning_path }}/tutorial-docs/
+            ${{ steps.config.outputs.learning_path }}/prompt.md

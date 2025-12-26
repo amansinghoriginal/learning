@@ -33,4 +33,16 @@ sleep 30
 drasi init
 drasi ingress init --use-existing --ingress-class-name traefik --ingress-ip-address 127.0.0.1
 
+if [ "$GITHUB_ACTIONS" = "true" ] && [ "$CODESPACES" != "true" ]; then
+    echo "Detected GitHub Actions environment. Installing evaluation tools..."
+
+    echo "Installing global Node.js tools..."
+    npm install -g @github/copilot
+    npm install -g playwright
+
+    # Install Playwright browsers
+    echo "Installing Playwright browsers..."
+    npx playwright install --with-deps chromium
+fi
+
 echo "Setup complete. You can now run your application."
