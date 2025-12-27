@@ -29,3 +29,17 @@ kubectl wait --for=condition=ready pod -l app=postgres --timeout=60s
 
 ## Install Drasi
 drasi init
+
+if [ "$GITHUB_ACTIONS" = "true" ] && [ "$CODESPACES" != "true" ]; then
+    echo "Detected GitHub Actions environment. Installing evaluation tools..."
+
+    echo "Installing global Node.js tools..."
+    npm install -g @github/copilot
+    npm install -g playwright
+
+    # Install Playwright browsers
+    echo "Installing Playwright browsers..."
+    npx playwright install --with-deps chromium
+fi
+
+echo "Setup complete."

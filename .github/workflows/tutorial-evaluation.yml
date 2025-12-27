@@ -10,6 +10,9 @@ on:
           - getting-started
           - curbside-pickup
           - building-comfort
+          - dapr
+          - absence-of-change
+          - risky-containers
         default: 'getting-started'
       docs_repo:
         description: 'Docs repository to use (owner/repo format)'
@@ -22,12 +25,20 @@ on:
         default: 'gemini-3-pro-preview'
 
 jobs:
-  evaluate:
+  setup:
     runs-on: ubuntu-latest
+    outputs:
+      runner: ${{ steps.config.outputs.runner }}
+      devcontainer: ${{ steps.config.outputs.devcontainer }}
+      docs_path: ${{ steps.config.outputs.docs_path }}
+      learning_path: ${{ steps.config.outputs.learning_path }}
     steps:
       - name: Set tutorial config
         id: config
         run: |
+          # Default runner
+          RUNNER="ubuntu-latest"
+
           case "${{ inputs.tutorial }}" in
             getting-started)
               echo "devcontainer=.devcontainer/devcontainer.json" >> $GITHUB_OUTPUT
@@ -44,12 +55,34 @@ jobs:
               echo "docs_path=docs/content/tutorials/building-comfort" >> $GITHUB_OUTPUT
               echo "learning_path=tutorial/building-comfort" >> $GITHUB_OUTPUT
               ;;
+            dapr)
+              echo "devcontainer=.devcontainer/dapr/devcontainer.json" >> $GITHUB_OUTPUT
+              echo "docs_path=docs/content/tutorials/drasi-for-dapr" >> $GITHUB_OUTPUT
+              echo "learning_path=tutorial/dapr" >> $GITHUB_OUTPUT
+              RUNNER="ubuntu-latest-4-core"
+              ;;
+            absence-of-change)
+              echo "devcontainer=.devcontainer/absence-of-change/devcontainer.json" >> $GITHUB_OUTPUT
+              echo "docs_path=docs/content/tutorials/absence-of-change" >> $GITHUB_OUTPUT
+              echo "learning_path=tutorial/absence-of-change" >> $GITHUB_OUTPUT
+              ;;
+            risky-containers)
+              echo "devcontainer=.devcontainer/risky-containers/devcontainer.json" >> $GITHUB_OUTPUT
+              echo "docs_path=docs/content/tutorials/risky-containers" >> $GITHUB_OUTPUT
+              echo "learning_path=tutorial/risky-containers" >> $GITHUB_OUTPUT
+              ;;
             *)
               echo "::error::Unknown tutorial: ${{ inputs.tutorial }}"
               exit 1
               ;;
           esac
 
+          echo "runner=$RUNNER" >> $GITHUB_OUTPUT
+
+  evaluate:
+    needs: setup
+    runs-on: ${{ needs.setup.outputs.runner }}
+    steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
@@ -62,16 +95,16 @@ jobs:
 
       - name: Copy tutorial docs and prompt into the workspace
         run: |
-          mkdir -p ${{ steps.config.outputs.learning_path }}/tutorial-docs
-          cp -r drasi-docs/${{ steps.config.outputs.docs_path }}/* ${{ steps.config.outputs.learning_path }}/tutorial-docs
-          cp .github/prompts/tutorial-evaluation.md ${{ steps.config.outputs.learning_path }}/prompt.md
+          mkdir -p ${{ needs.setup.outputs.learning_path }}/tutorial-docs
+          cp -r drasi-docs/${{ needs.setup.outputs.docs_path }}/* ${{ needs.setup.outputs.learning_path }}/tutorial-docs
+          cp .github/prompts/tutorial-evaluation.md ${{ needs.setup.outputs.learning_path }}/prompt.md
 
       - name: Copilot-CLI inside Devcontainer
         uses: devcontainers/ci@v0.3
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT_TOKEN }}
         with:
-          configFile: ${{ steps.config.outputs.devcontainer }}
+          configFile: ${{ needs.setup.outputs.devcontainer }}
           push: never
           runCmd: |
             copilot -p "$(cat prompt.md)" --allow-all-tools --allow-all-paths --model ${{ inputs.model }}
@@ -79,7 +112,7 @@ jobs:
       - name: Check evaluation status
         if: always()
         run: |
-          REPORT=$(find ${{ steps.config.outputs.learning_path }} -name "report.md" -path "*/evaluation-*/*" | head -1)
+          REPORT=$(find ${{ needs.setup.outputs.learning_path }} -name "report.md" -path "*/evaluation-*/*" | head -1)
 
           if [ -z "$REPORT" ]; then
             echo "::error::No report.md found in evaluation directory"
@@ -91,14 +124,20 @@ jobs:
           cat "$REPORT"
           echo "--- End Report ---"
 
-          if grep -q "## STATUS: SUCCESS" "$REPORT"; then
+          # Remove potential BOM and normalize line endings
+          sed -i '1s/^\xEF\xBB\xBF//' "$REPORT"
+          sed -i 's/\r$//' "$REPORT"
+
+          if grep -qiE "^##\s*STATUS:\s*SUCCESS" "$REPORT"; then
             echo "::notice::Tutorial evaluation PASSED"
             exit 0
-          elif grep -q "## STATUS: FAILURE" "$REPORT"; then
+          elif grep -qiE "^##\s*STATUS:\s*FAILURE" "$REPORT"; then
             echo "::error::Tutorial evaluation FAILED"
             exit 1
           else
             echo "::error::No STATUS found in report.md"
+            echo "First 5 lines of report:"
+            head -5 "$REPORT" | cat -A
             exit 1
           fi
 
@@ -108,6 +147,6 @@ jobs:
         with:
           name: evaluation-results-${{ inputs.tutorial }}
           path: |
-            ${{ steps.config.outputs.learning_path }}/evaluation-*/
-            ${{ steps.config.outputs.learning_path }}/tutorial-docs/
-            ${{ steps.config.outputs.learning_path }}/prompt.md
+            ${{ needs.setup.outputs.learning_path }}/evaluation-*/
+            ${{ needs.setup.outputs.learning_path }}/tutorial-docs/
+            ${{ needs.setup.outputs.learning_path }}/prompt.md

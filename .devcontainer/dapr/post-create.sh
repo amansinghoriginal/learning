@@ -50,6 +50,18 @@ echo "Running setup script..."
 # The working directory is already set by workspaceFolder in devcontainer.json
 bash scripts/setup-tutorial.sh
 
+if [ "$GITHUB_ACTIONS" = "true" ] && [ "$CODESPACES" != "true" ]; then
+    echo "Detected GitHub Actions environment. Installing evaluation tools..."
+
+    echo "Installing global Node.js tools..."
+    npm install -g @github/copilot
+    npm install -g playwright
+
+    # Install Playwright browsers
+    echo "Installing Playwright browsers..."
+    npx playwright install --with-deps chromium
+fi
+
 echo ""
 echo "Setup complete! Applications are available at:"
 echo "  Catalog UI: http://localhost:8123/catalogue-service"

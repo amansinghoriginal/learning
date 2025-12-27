@@ -61,3 +61,17 @@ docker pull ghcr.io/drasi-project/my-app:0.3
 k3d image import ghcr.io/drasi-project/my-app:0.1
 k3d image import ghcr.io/drasi-project/my-app:0.2
 k3d image import ghcr.io/drasi-project/my-app:0.3
+
+if [ "$GITHUB_ACTIONS" = "true" ] && [ "$CODESPACES" != "true" ]; then
+    echo "Detected GitHub Actions environment. Installing evaluation tools..."
+
+    echo "Installing global Node.js tools..."
+    npm install -g @github/copilot
+    npm install -g playwright
+
+    # Install Playwright browsers
+    echo "Installing Playwright browsers..."
+    npx playwright install --with-deps chromium
+fi
+
+echo "Setup complete."
